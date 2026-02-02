@@ -57,7 +57,7 @@ models:
 
 ### Classifier
 
-The classifier determines request complexity before routing. Two options:
+The classifier determines request complexity before routing. Three options:
 
 #### Local Classification (default)
 
@@ -75,17 +75,27 @@ classifier:
 ollama pull qwen2.5:3b
 ```
 
-#### Remote Classification (API)
+#### Anthropic Classification
 
-Uses a remote API for classification (currently Anthropic Haiku). No local hardware needed, small cost per classification. Supports both API keys and OAuth tokens (passed through from your request).
+Uses Anthropic Haiku for classification. Fast, low cost per classification.
 
 ```yaml
 classifier:
-  provider: "api"
+  provider: "anthropic"
   model: "claude-haiku-4-5-20251001"
 ```
 
-Choose remote if:
+#### OpenAI Classification
+
+Uses OpenAI for classification. Useful if you have OpenAI credits or prefer their models.
+
+```yaml
+classifier:
+  provider: "openai"
+  model: "gpt-4o-mini"
+```
+
+Choose remote (anthropic/openai) if:
 - Your machine can't run local models
 - You want simpler setup (no Ollama required)
 

@@ -7,10 +7,10 @@ server:
   port: 4001  # Default port, can be overridden with --port
 
 # Classifier settings
-# provider: "local" (Ollama, free) or "api" (remote, currently Anthropic)
+# provider: "local" (Ollama, free), "anthropic", or "openai"
 classifier:
-  provider: "local"  # Use "api" if you can't run local models
-  model: "qwen2.5:3b"  # For local: any Ollama model. For api: e.g., claude-haiku-4-5-20251001
+  provider: "local"  # Use "anthropic" or "openai" if you can't run local models
+  model: "qwen2.5:3b"  # local: any Ollama model, anthropic: claude-haiku-*, openai: gpt-4o-mini
   ollama_url: "http://localhost:11434/api/generate"
   routes_file: "ROUTES.md"
 

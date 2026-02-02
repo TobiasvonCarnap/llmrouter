@@ -2,7 +2,7 @@
 """
 Message classifier for LLM Router.
 Reads ROUTES.md and classifies incoming messages into 5 complexity tiers.
-Supports local (Ollama) or remote (Anthropic) classification.
+Supports local (Ollama) or remote (Anthropic, OpenAI) classification.
 """
 
 import re
@@ -11,10 +11,11 @@ import sys
 from pathlib import Path
 
 # Defaults (can be overridden via function parameters)
-DEFAULT_PROVIDER = "local"  # "local" (Ollama) or "api" (remote, e.g. Anthropic)
+DEFAULT_PROVIDER = "local"  # "local", "anthropic", or "openai"
 DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate"
 DEFAULT_MODEL = "qwen2.5:3b"
 DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 ROUTES_PATH = Path(__file__).parent / "ROUTES.md"
 
 # Valid complexity levels (single source of truth)
@@ -193,6 +194,31 @@ def _classify_with_anthropic(prompt: str, model: str, api_key: str) -> str:
     return ""
 
 
+def _classify_with_openai(prompt: str, model: str, api_key: str) -> str:
+    """Classify using OpenAI API."""
+    response = requests.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "max_tokens": 50,
+            "messages": [{"role": "user", "content": prompt}],
+        },
+        timeout=30
+    )
+    response.raise_for_status()
+    resp_json = response.json()
+
+    # Extract text from response
+    choices = resp_json.get("choices", [])
+    if choices and choices[0].get("message", {}).get("content"):
+        return _extract_complexity(choices[0]["message"]["content"])
+    return ""
+
+
 def classify(message: str, rules: str = None, model: str = None,
              provider: str = None, ollama_url: str = None, api_key: str = None) -> str:
     """
@@ -202,10 +228,10 @@ def classify(message: str, rules: str = None, model: str = None,
     Args:
         message: The message to classify
         rules: Classification rules (loaded from ROUTES.md if not provided)
-        model: Model to use (default: qwen2.5:3b for local, claude-haiku-4-5-20251001 for api)
-        provider: "local" (Ollama) or "api" (remote, currently Anthropic) (default: local)
+        model: Model to use (defaults vary by provider)
+        provider: "local" (Ollama), "anthropic", or "openai" (default: local)
         ollama_url: Ollama API URL (default: http://localhost:11434/api/generate)
-        api_key: Anthropic API key (required if provider is "anthropic", uses ANTHROPIC_API_KEY env var if not provided)
+        api_key: API key for remote providers
     """
     if rules is None:
         rules = load_classifier_rules()
@@ -215,12 +241,19 @@ def classify(message: str, rules: str = None, model: str = None,
     prompt = _build_prompt(message, rules)
 
     try:
-        if provider == "api":
+        if provider in ("api", "anthropic"):
+            # "api" is legacy alias for "anthropic"
             if not api_key:
-                raise ValueError("API key/token required for remote classification (passed from request)")
+                raise ValueError("API key/token required for Anthropic classification")
             if model is None:
                 model = DEFAULT_ANTHROPIC_MODEL
             result = _classify_with_anthropic(prompt, model, api_key)
+        elif provider == "openai":
+            if not api_key:
+                raise ValueError("API key required for OpenAI classification")
+            if model is None:
+                model = DEFAULT_OPENAI_MODEL
+            result = _classify_with_openai(prompt, model, api_key)
         else:
             # Default to local/Ollama
             if model is None:

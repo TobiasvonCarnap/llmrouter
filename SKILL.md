@@ -72,7 +72,7 @@ models:
 
 ### Classifier
 
-Two options for classifying request complexity:
+Three options for classifying request complexity:
 
 **Local (default)** - Free, requires Ollama:
 ```yaml
@@ -81,14 +81,21 @@ classifier:
   model: "qwen2.5:3b"
 ```
 
-**Remote (API)** - No local hardware needed, uses your API token:
+**Anthropic** - Uses Haiku, fast and cheap:
 ```yaml
 classifier:
-  provider: "api"
+  provider: "anthropic"
   model: "claude-haiku-4-5-20251001"
 ```
 
-Use remote if your machine can't run local models or you want simpler setup. Currently uses Anthropic; other providers planned.
+**OpenAI** - Uses GPT-4o-mini:
+```yaml
+classifier:
+  provider: "openai"
+  model: "gpt-4o-mini"
+```
+
+Use remote (anthropic/openai) if your machine can't run local models.
 
 ### Supported Providers
 

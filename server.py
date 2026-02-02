@@ -614,12 +614,18 @@ class RouterHandler(BaseHTTPRequestHandler):
             # Classify the message
             start = time.time()
             classifier_config = CONFIG.get("classifier", {})
-            # For API classification, use anthropic key from config or fall back to request header
-            classifier_key = get_provider_key("anthropic", api_key) if classifier_config.get("provider") == "api" else None
+            classifier_provider = classifier_config.get("provider", "local")
+            # Get appropriate API key for classifier based on provider
+            if classifier_provider in ("api", "anthropic"):
+                classifier_key = get_provider_key("anthropic", api_key)
+            elif classifier_provider == "openai":
+                classifier_key = get_provider_key("openai", api_key)
+            else:
+                classifier_key = None
             complexity = classify(
                 user_message,
                 model=classifier_config.get("model"),
-                provider=classifier_config.get("provider"),
+                provider=classifier_provider,
                 ollama_url=classifier_config.get("ollama_url"),
                 api_key=classifier_key,
             )

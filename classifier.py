@@ -235,6 +235,32 @@ def _classify_with_openai(prompt: str, model: str, api_key: str) -> str:
     return ""
 
 
+DEFAULT_GOOGLE_MODEL = "gemini-2.0-flash"
+
+
+def _classify_with_google(prompt: str, model: str, api_key: str) -> str:
+    """Classify using Google Gemini API."""
+    response = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
+        headers={"Content-Type": "application/json"},
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": 50}
+        },
+        timeout=30
+    )
+    response.raise_for_status()
+    resp_json = response.json()
+
+    # Extract text from Gemini response
+    candidates = resp_json.get("candidates", [])
+    if candidates:
+        parts = candidates[0].get("content", {}).get("parts", [])
+        if parts and parts[0].get("text"):
+            return _extract_complexity(parts[0]["text"])
+    return ""
+
+
 def classify(message: str, rules: str = None, model: str = None,
              provider: str = None, ollama_url: str = None, api_key: str = None) -> str:
     """
@@ -270,6 +296,12 @@ def classify(message: str, rules: str = None, model: str = None,
             if model is None:
                 model = DEFAULT_OPENAI_MODEL
             result = _classify_with_openai(prompt, model, api_key)
+        elif provider == "google":
+            if not api_key:
+                raise ValueError("API key required for Google classification")
+            if model is None:
+                model = DEFAULT_GOOGLE_MODEL
+            result = _classify_with_google(prompt, model, api_key)
         else:
             # Default to local/Ollama
             if model is None:

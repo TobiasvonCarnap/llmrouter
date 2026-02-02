@@ -626,25 +626,95 @@ def call_openai_model(model, messages, max_tokens, system=None, api_key=None, to
 
 
 def call_google_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
-    """Call Google Gemini API (tools not yet implemented)"""
-    if not api_key:
-        raise Exception("No API key provided in Authorization header")
+    """Call Google Gemini API with tool support.
 
-    # Convert messages to Gemini format
+    Messages come in Anthropic format (content blocks), need conversion to Gemini format.
+    Tools come in OpenAI format, need conversion to Gemini functionDeclarations format.
+    """
+    if not api_key:
+        raise Exception("No API key provided for Google")
+
+    # Convert Anthropic-format messages to Gemini format
     contents = []
     for msg in messages:
-        role = "user" if msg["role"] == "user" else "model"
-        contents.append({
-            "role": role,
-            "parts": [{"text": extract_text_content(msg["content"])}]
-        })
+        role = "user" if msg.get("role") == "user" else "model"
+        content = msg.get("content", "")
+        parts = []
+
+        # Handle Anthropic content blocks
+        if isinstance(content, list):
+            for block in content:
+                if block.get("type") == "text":
+                    parts.append({"text": block.get("text", "")})
+                elif block.get("type") == "tool_use":
+                    # Convert to Gemini functionCall format
+                    parts.append({
+                        "functionCall": {
+                            "name": block.get("name", ""),
+                            "args": block.get("input", {})
+                        }
+                    })
+                elif block.get("type") == "tool_result":
+                    # Convert to Gemini functionResponse format
+                    parts.append({
+                        "functionResponse": {
+                            "name": block.get("name", "unknown"),
+                            "response": {"result": block.get("content", "")}
+                        }
+                    })
+                elif block.get("type") == "image":
+                    # Convert image to Gemini format
+                    source = block.get("source", {})
+                    if source.get("type") == "base64":
+                        parts.append({
+                            "inlineData": {
+                                "mimeType": source.get("media_type", "image/png"),
+                                "data": source.get("data", "")
+                            }
+                        })
+        else:
+            # Simple string content
+            parts.append({"text": content if isinstance(content, str) else str(content)})
+
+        if parts:
+            contents.append({"role": role, "parts": parts})
+
+    # Build request payload
+    payload = {
+        "contents": contents,
+        "generationConfig": {"maxOutputTokens": max_tokens}
+    }
+
+    # Add system instruction if provided
+    if system:
+        payload["systemInstruction"] = {"parts": [{"text": system}]}
+
+    # Convert tools to Gemini functionDeclarations format
+    if tools:
+        function_declarations = []
+        for tool in tools:
+            # Handle OpenAI format (from OpenClaw)
+            if tool.get("type") == "function" and "function" in tool:
+                func = tool["function"]
+                function_declarations.append({
+                    "name": func.get("name", ""),
+                    "description": func.get("description", ""),
+                    "parameters": func.get("parameters", {})
+                })
+            else:
+                # Anthropic format
+                function_declarations.append({
+                    "name": tool.get("name", ""),
+                    "description": tool.get("description", ""),
+                    "parameters": tool.get("input_schema", {})
+                })
+        if function_declarations:
+            payload["tools"] = [{"functionDeclarations": function_declarations}]
 
     response = requests.post(
         f"{PROVIDER_URLS['google']}/{model}:generateContent?key={api_key}",
-        json={
-            "contents": contents,
-            "generationConfig": {"maxOutputTokens": max_tokens}
-        },
+        headers={"Content-Type": "application/json"},
+        json=payload,
         timeout=300,
     )
 
@@ -653,15 +723,35 @@ def call_google_model(model, messages, max_tokens, system=None, api_key=None, to
 
     data = response.json()
 
-    # Convert Gemini format to Anthropic-like format
+    # Convert Gemini response to Anthropic-like format
+    content_blocks = []
+    stop_reason = "stop"
+
+    candidates = data.get("candidates", [])
+    if candidates:
+        parts = candidates[0].get("content", {}).get("parts", [])
+        for part in parts:
+            if "text" in part:
+                content_blocks.append({"type": "text", "text": part["text"]})
+            elif "functionCall" in part:
+                # Convert to Anthropic tool_use format
+                fc = part["functionCall"]
+                content_blocks.append({
+                    "type": "tool_use",
+                    "id": f"toolu_{int(time.time())}_{fc.get('name', '')}",
+                    "name": fc.get("name", ""),
+                    "input": fc.get("args", {})
+                })
+                stop_reason = "tool_use"
+
     return {
         "id": f"gemini-{int(time.time())}",
-        "content": [{"type": "text", "text": data["candidates"][0]["content"]["parts"][0]["text"]}],
+        "content": content_blocks if content_blocks else [{"type": "text", "text": ""}],
         "usage": {
             "input_tokens": data.get("usageMetadata", {}).get("promptTokenCount", 0),
             "output_tokens": data.get("usageMetadata", {}).get("candidatesTokenCount", 0)
         },
-        "stop_reason": "stop"
+        "stop_reason": stop_reason
     }
 
 
@@ -871,6 +961,8 @@ class RouterHandler(BaseHTTPRequestHandler):
                 classifier_key = get_provider_key("anthropic", api_key)
             elif classifier_provider == "openai":
                 classifier_key = get_provider_key("openai", api_key)
+            elif classifier_provider == "google":
+                classifier_key = get_provider_key("google", api_key)
             else:
                 classifier_key = None
             complexity = classify(

@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """
-Local message classifier using Ollama + qwen2.5:3b
+Local message classifier using Ollama.
 Reads ROUTES.md and classifies incoming messages into 5 complexity tiers.
+Model is configurable via parameters (default: qwen2.5:3b).
 """
 
-import json
+import re
 import requests
 import sys
 from pathlib import Path
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "qwen2.5:3b"  # Fast classification without thinking mode overhead
+# Defaults (can be overridden via function parameters)
+DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate"
+DEFAULT_MODEL = "qwen2.5:3b"
 ROUTES_PATH = Path(__file__).parent / "ROUTES.md"
+
+# Valid complexity levels (single source of truth)
+COMPLEXITY_LEVELS = ("super_easy", "easy", "medium", "hard", "super_hard")
 
 # Default rules if ROUTES.md can't be parsed
 DEFAULT_RULES = """
@@ -55,7 +60,7 @@ def load_classifier_rules():
                     notes = parts[2]
 
                     # Include all 5 complexity levels
-                    if complexity in ('super_easy', 'easy', 'medium', 'hard', 'super_hard'):
+                    if complexity in COMPLEXITY_LEVELS:
                         rules.append(f"- {complexity}: {task_type} — {notes}")
 
         if rules:
@@ -68,13 +73,23 @@ def load_classifier_rules():
         print(f"Warning: Could not load ROUTES.md: {e}", file=sys.stderr)
         return DEFAULT_RULES
 
-def classify(message: str, rules: str = None) -> str:
+def classify(message: str, rules: str = None, model: str = None, ollama_url: str = None) -> str:
     """
     Classify a message into super_easy/easy/medium/hard/super_hard.
     Returns the complexity level (lowercase with underscore).
+
+    Args:
+        message: The message to classify
+        rules: Classification rules (loaded from ROUTES.md if not provided)
+        model: Ollama model to use for classification (default: qwen2.5:3b)
+        ollama_url: Ollama API URL (default: http://localhost:11434/api/generate)
     """
     if rules is None:
         rules = load_classifier_rules()
+    if model is None:
+        model = DEFAULT_MODEL
+    if ollama_url is None:
+        ollama_url = DEFAULT_OLLAMA_URL
 
     # Truncate long messages - we only need the beginning to classify intent
     truncated = message[:500] + "..." if len(message) > 500 else message
@@ -90,9 +105,9 @@ Complexity (answer with just one of: super_easy, easy, medium, hard, super_hard)
 
     try:
         response = requests.post(
-            OLLAMA_URL,
+            ollama_url,
             json={
-                "model": MODEL,
+                "model": model,
                 "prompt": prompt,
                 "stream": False,
                 "options": {
@@ -113,22 +128,18 @@ Complexity (answer with just one of: super_easy, easy, medium, hard, super_hard)
             result_text = thinking_text if thinking_text else result_text
 
         # Remove thinking tags if present
-        import re
         result_text = re.sub(r'<think>.*?</think>', '', result_text, flags=re.DOTALL).strip()
         result_text = re.sub(r'</?think>', '', result_text).strip()
 
-        # Valid complexity levels
-        valid_levels = ["super_easy", "easy", "medium", "hard", "super_hard"]
-
         # Look for complexity levels in the text
-        for level in valid_levels:
+        for level in COMPLEXITY_LEVELS:
             if level in result_text:
                 return level
 
         # Try extracting first word as fallback
         if result_text:
             result = result_text.split()[0] if result_text.split() else ""
-            if result in valid_levels:
+            if result in COMPLEXITY_LEVELS:
                 return result
 
         # Default to medium if classification fails
@@ -137,7 +148,7 @@ Complexity (answer with just one of: super_easy, easy, medium, hard, super_hard)
             
     except Exception as e:
         print(f"Error classifying message: {e}", file=sys.stderr)
-        return "sonnet"  # Safe default
+        return "medium"  # Safe default
 
 def main():
     """CLI interface for testing"""

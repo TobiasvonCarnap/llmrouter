@@ -1,6 +1,6 @@
 ---
 name: llmrouter
-description: Intelligent LLM proxy that routes requests to appropriate models based on complexity. Save money by using cheaper models for simple tasks.
+description: Intelligent LLM proxy that routes requests to appropriate models based on complexity. Save money by using cheaper models for simple tasks. Currently tested with Anthropic only.
 homepage: https://github.com/alexrudloff/llmrouter
 metadata: {"openclaw":{"emoji":"🔀","homepage":"https://github.com/alexrudloff/llmrouter","os":["darwin","linux"],"requires":{"bins":["python3","ollama"],"anyBins":["pip","pip3"]},"primaryEnv":"ANTHROPIC_API_KEY"}}
 ---
@@ -9,21 +9,23 @@ metadata: {"openclaw":{"emoji":"🔀","homepage":"https://github.com/alexrudloff
 
 An intelligent proxy that classifies incoming requests by complexity and routes them to appropriate LLM models. Use cheaper/faster models for simple tasks and reserve expensive models for complex ones.
 
+**Status:** Currently tested with Anthropic only. Other providers are implemented but untested.
+
 ## Quick Start
 
 ### Prerequisites
 
-1. **Ollama** running locally with the classifier model:
+1. **Ollama** running locally with a classifier model:
    ```bash
    ollama pull qwen2.5:3b
    ```
 
 2. **Python dependencies**:
    ```bash
-   pip install pyyaml requests
+   pip install -r requirements.txt
    ```
 
-3. **API key** for your chosen provider (Anthropic, OpenAI, or Google)
+3. **Anthropic API key** (or Claude Code OAuth token)
 
 ### Setup
 
@@ -32,6 +34,9 @@ An intelligent proxy that classifies incoming requests by complexity and routes 
 git clone https://github.com/alexrudloff/llmrouter.git
 cd llmrouter
 
+# Install dependencies
+pip install -r requirements.txt
+
 # Copy and customize config
 cp config.yaml.example config.yaml
 ```
@@ -39,7 +44,7 @@ cp config.yaml.example config.yaml
 ### Start the Server
 
 ```bash
-python server.py --port 4001
+python server.py
 ```
 
 Options:
@@ -51,8 +56,9 @@ Options:
 
 ## Configuration
 
-Edit `config.yaml` to customize model routing:
+Edit `config.yaml` to customize:
 
+### Model Routing
 ```yaml
 models:
   super_easy: "anthropic:claude-haiku-4-5-20251001"
@@ -62,12 +68,19 @@ models:
   super_hard: "anthropic:claude-opus-4-20250514"
 ```
 
+### Classifier Model
+```yaml
+classifier:
+  model: "qwen2.5:3b"  # Any Ollama model
+  ollama_url: "http://localhost:11434/api/generate"
+```
+
 ### Supported Providers
 
-- `anthropic:claude-*` - Anthropic Claude models
-- `openai:gpt-*` - OpenAI GPT models
-- `google:gemini-*` - Google Gemini models
-- `local:model-name` - Local Ollama models
+- `anthropic:claude-*` - Anthropic Claude models (tested)
+- `openai:gpt-*` - OpenAI GPT models (untested)
+- `google:gemini-*` - Google Gemini models (untested)
+- `local:model-name` - Local Ollama models (untested)
 
 ## Complexity Levels
 

@@ -16,11 +16,12 @@ API Format: OpenAI-compatible (drop-in replacement)
 
 import argparse
 import json
+import logging
 import os
+import re
 import sys
 import time
 import yaml
-import logging
 
 # Unbuffered output for launchd logging
 sys.stdout.reconfigure(line_buffering=True)
@@ -90,8 +91,29 @@ def parse_provider_model(provider_model_str):
     return "anthropic", provider_model_str
 
 
-def call_local_model(model, messages, max_tokens, system=None):
-    """Call local Ollama model"""
+def extract_text_content(content):
+    """Extract text from OpenAI-style content (string or array of content blocks).
+
+    Args:
+        content: Either a string or a list of content blocks with type/text fields
+
+    Returns:
+        Extracted text as a string
+    """
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return " ".join(
+            item.get("text", "") for item in content
+            if isinstance(item, dict) and item.get("type") == "text"
+        )
+    return ""
+
+
+def call_local_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
+    """Call local Ollama model (api_key and tools ignored)"""
     try:
         # Convert messages to simple text format for Ollama
         ollama_messages = []
@@ -104,19 +126,9 @@ def call_local_model(model, messages, max_tokens, system=None):
             })
 
         for msg in messages:
-            content = msg.get("content") or ""
-            # Extract text from content array
-            if isinstance(content, list):
-                text = " ".join(
-                    item.get("text") or "" for item in content
-                    if isinstance(item, dict) and item.get("type") == "text"
-                )
-            else:
-                text = content or ""
-
             ollama_messages.append({
                 "role": msg["role"],
-                "content": text
+                "content": extract_text_content(msg.get("content"))
             })
 
         response = requests.post(
@@ -304,8 +316,8 @@ def call_anthropic_model(model, messages, max_tokens, system=None, api_key=None,
         raise
 
 
-def call_openai_model(model, messages, max_tokens, system=None, api_key=None):
-    """Call OpenAI API"""
+def call_openai_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
+    """Call OpenAI API (tools not yet implemented)"""
     if not api_key:
         raise Exception("No API key provided in Authorization header")
 
@@ -346,8 +358,8 @@ def call_openai_model(model, messages, max_tokens, system=None, api_key=None):
     }
 
 
-def call_google_model(model, messages, max_tokens, system=None, api_key=None):
-    """Call Google Gemini API"""
+def call_google_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
+    """Call Google Gemini API (tools not yet implemented)"""
     if not api_key:
         raise Exception("No API key provided in Authorization header")
 
@@ -357,8 +369,7 @@ def call_google_model(model, messages, max_tokens, system=None, api_key=None):
         role = "user" if msg["role"] == "user" else "model"
         contents.append({
             "role": role,
-            "parts": [{"text": msg["content"]}] if isinstance(msg["content"], str)
-                    else [{"text": item["text"]} for item in msg["content"] if item.get("type") == "text"]
+            "parts": [{"text": extract_text_content(msg["content"])}]
         })
 
     response = requests.post(
@@ -387,160 +398,103 @@ def call_google_model(model, messages, max_tokens, system=None, api_key=None):
     }
 
 
+# Provider registry - maps provider name to handler function
+# All handlers have signature: (model, messages, max_tokens, system, api_key, tools)
+PROVIDERS = {
+    "local": call_local_model,
+    "anthropic": call_anthropic_model,
+    "openai": call_openai_model,
+    "google": call_google_model,
+}
+
+
 class RouterHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         print(f"[{time.strftime('%H:%M:%S')}] {args[0]}")
-    
+
     def send_json(self, data, status=200):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
-    def send_streaming_response(self, response_id, model_name, content, usage):
-        """Send OpenAI-compatible streaming response"""
+    # --- Streaming helpers ---
+
+    def _create_chunk(self, response_id, model_name, delta, finish_reason=None, usage=None):
+        """Create an OpenAI-compatible SSE chunk."""
+        chunk = {
+            "id": response_id,
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "model": model_name,
+            "choices": [{
+                "index": 0,
+                "delta": delta,
+                "finish_reason": finish_reason
+            }]
+        }
+        if usage is not None:
+            chunk["usage"] = usage
+        return chunk
+
+    def _send_chunk(self, chunk):
+        """Send an SSE chunk."""
+        self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
+
+    def _start_stream(self, response_id, model_name):
+        """Start SSE stream: send headers and role chunk."""
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
         self.send_header("Connection", "close")
         self.end_headers()
+        self._send_chunk(self._create_chunk(response_id, model_name, {"role": "assistant"}))
 
-        # Send content chunk with role first
-        role_chunk = {
-            "id": response_id,
-            "object": "chat.completion.chunk",
-            "created": int(time.time()),
-            "model": model_name,
-            "choices": [{
-                "index": 0,
-                "delta": {"role": "assistant"},
-                "finish_reason": None
-            }]
-        }
-        self.wfile.write(f"data: {json.dumps(role_chunk)}\n\n".encode())
-
-        # Send content chunk
-        content_chunk = {
-            "id": response_id,
-            "object": "chat.completion.chunk",
-            "created": int(time.time()),
-            "model": model_name,
-            "choices": [{
-                "index": 0,
-                "delta": {"content": content},
-                "finish_reason": None
-            }]
-        }
-        self.wfile.write(f"data: {json.dumps(content_chunk)}\n\n".encode())
-
-        # Send finish chunk
-        finish_chunk = {
-            "id": response_id,
-            "object": "chat.completion.chunk",
-            "created": int(time.time()),
-            "model": model_name,
-            "choices": [{
-                "index": 0,
-                "delta": {},
-                "finish_reason": "stop"
-            }],
-            "usage": usage
-        }
-        self.wfile.write(f"data: {json.dumps(finish_chunk)}\n\n".encode())
-
-        # Send done marker
+    def _end_stream(self, response_id, model_name, finish_reason, usage):
+        """End SSE stream: send finish chunk and done marker."""
+        self._send_chunk(self._create_chunk(response_id, model_name, {}, finish_reason, usage))
         self.wfile.write(b"data: [DONE]\n\n")
 
+    # --- Public streaming methods ---
+
+    def send_streaming_response(self, response_id, model_name, content, usage):
+        """Send OpenAI-compatible streaming response."""
+        self._start_stream(response_id, model_name)
+        self._send_chunk(self._create_chunk(response_id, model_name, {"content": content}))
+        self._end_stream(response_id, model_name, "stop", usage)
+
     def send_streaming_tool_response(self, response_id, model_name, content_blocks, usage, stop_reason):
-        """Send OpenAI-compatible streaming response with tool calls"""
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header("Connection", "close")
-        self.end_headers()
+        """Send OpenAI-compatible streaming response with tool calls."""
+        self._start_stream(response_id, model_name)
 
-        # Send role chunk
-        role_chunk = {
-            "id": response_id,
-            "object": "chat.completion.chunk",
-            "created": int(time.time()),
-            "model": model_name,
-            "choices": [{
-                "index": 0,
-                "delta": {"role": "assistant"},
-                "finish_reason": None
-            }]
-        }
-        self.wfile.write(f"data: {json.dumps(role_chunk)}\n\n".encode())
-
-        # Process content blocks
         tool_call_index = 0
         for block in content_blocks:
             if block.get("type") == "text":
-                # Send text content
-                text_chunk = {
-                    "id": response_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": model_name,
-                    "choices": [{
-                        "index": 0,
-                        "delta": {"content": block.get("text", "")},
-                        "finish_reason": None
-                    }]
-                }
-                self.wfile.write(f"data: {json.dumps(text_chunk)}\n\n".encode())
-
+                self._send_chunk(self._create_chunk(
+                    response_id, model_name, {"content": block.get("text", "")}
+                ))
             elif block.get("type") == "tool_use":
-                # Map tool name back to original if in openclaw mode
                 tool_name = block.get("name", "")
                 if OPENCLAW_MODE:
                     tool_name = from_claude_code_name(tool_name)
 
-                # Send tool call
-                tool_chunk = {
-                    "id": response_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": model_name,
-                    "choices": [{
-                        "index": 0,
-                        "delta": {
-                            "tool_calls": [{
-                                "index": tool_call_index,
-                                "id": block.get("id", ""),
-                                "type": "function",
-                                "function": {
-                                    "name": tool_name,
-                                    "arguments": json.dumps(block.get("input", {}))
-                                }
-                            }]
-                        },
-                        "finish_reason": None
+                delta = {
+                    "tool_calls": [{
+                        "index": tool_call_index,
+                        "id": block.get("id", ""),
+                        "type": "function",
+                        "function": {
+                            "name": tool_name,
+                            "arguments": json.dumps(block.get("input", {}))
+                        }
                     }]
                 }
-                self.wfile.write(f"data: {json.dumps(tool_chunk)}\n\n".encode())
+                self._send_chunk(self._create_chunk(response_id, model_name, delta))
                 tool_call_index += 1
                 log(f"  Tool call: {tool_name}")
 
-        # Send finish chunk
         finish_reason = "tool_calls" if stop_reason == "tool_use" else "stop"
-        finish_chunk = {
-            "id": response_id,
-            "object": "chat.completion.chunk",
-            "created": int(time.time()),
-            "model": model_name,
-            "choices": [{
-                "index": 0,
-                "delta": {},
-                "finish_reason": finish_reason
-            }],
-            "usage": usage
-        }
-        self.wfile.write(f"data: {json.dumps(finish_chunk)}\n\n".encode())
-
-        # Send done marker
-        self.wfile.write(b"data: [DONE]\n\n")
+        self._end_stream(response_id, model_name, finish_reason, usage)
 
     def send_error_json(self, message, status=500):
         self.send_json({"error": {"message": message}}, status)
@@ -578,15 +532,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             user_message = ""
             for msg in reversed(messages):
                 if msg.get("role") == "user":
-                    content = msg.get("content", "")
-                    if isinstance(content, list):
-                        # Handle array content format
-                        for item in content:
-                            if isinstance(item, dict) and item.get("type") == "text":
-                                user_message = item.get("text", "")
-                                break
-                    else:
-                        user_message = content
+                    user_message = extract_text_content(msg.get("content", ""))
                     break
             
             if not user_message:
@@ -598,7 +544,12 @@ class RouterHandler(BaseHTTPRequestHandler):
 
             # Classify the message
             start = time.time()
-            complexity = classify(user_message)
+            classifier_config = CONFIG.get("classifier", {})
+            complexity = classify(
+                user_message,
+                model=classifier_config.get("model"),
+                ollama_url=classifier_config.get("ollama_url")
+            )
             classify_time = (time.time() - start) * 1000
 
             # If tools are present, bump super_easy to easy (tool use requires more capable model)
@@ -625,13 +576,7 @@ class RouterHandler(BaseHTTPRequestHandler):
 
                 # Handle system messages
                 if role == "system":
-                    if isinstance(content, list):
-                        system_content = " ".join(
-                            item.get("text", "") for item in content
-                            if isinstance(item, dict) and item.get("type") == "text"
-                        )
-                    else:
-                        system_content = content
+                    system_content = extract_text_content(content)
                     continue
 
                 # Convert OpenAI tool messages to Anthropic format
@@ -682,7 +627,6 @@ class RouterHandler(BaseHTTPRequestHandler):
 
             # In openclaw mode, rewrite model= in system prompt Runtime line
             if OPENCLAW_MODE and system_content:
-                import re
                 actual_model = f"{provider}/{target_model}"
                 system_content = re.sub(
                     r'\bmodel=localrouter/[^\s|]+',
@@ -693,25 +637,13 @@ class RouterHandler(BaseHTTPRequestHandler):
             # Route to appropriate provider
             try:
                 max_tokens = request.get("max_tokens", 8192)
-                if provider == "local":
-                    provider_response = call_local_model(
-                        target_model, provider_messages, max_tokens, system_content
-                    )
-                elif provider == "anthropic":
-                    provider_response = call_anthropic_model(
-                        target_model, provider_messages, max_tokens, system_content, api_key, tools
-                    )
-                elif provider == "openai":
-                    provider_response = call_openai_model(
-                        target_model, provider_messages, max_tokens, system_content, api_key
-                    )
-                elif provider == "google":
-                    provider_response = call_google_model(
-                        target_model, provider_messages, max_tokens, system_content, api_key
-                    )
-                else:
+                provider_fn = PROVIDERS.get(provider)
+                if not provider_fn:
                     self.send_error_json(f"Unknown provider: {provider}", 400)
                     return
+                provider_response = provider_fn(
+                    target_model, provider_messages, max_tokens, system_content, api_key, tools
+                )
             except Exception as e:
                 self.send_error_json(str(e), 500)
                 return

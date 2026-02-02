@@ -2,22 +2,24 @@
 
 An intelligent proxy that classifies incoming requests by complexity and routes them to appropriate LLM models. Save money by using cheaper/faster models for simple tasks and reserving expensive models for complex ones.
 
-Think of it like a locally hosted, minimalist OpenRouter alternative you can use to shave ClawdeBot/MoltBot/OpenClaw costs.
+## Status
+
+**Currently tested with Anthropic only.** OpenAI, Google, and local Ollama providers are implemented but untested.
 
 ## Features
 
 - **5-tier complexity routing**: super_easy, easy, medium, hard, super_hard
-- **Local classification**: Uses Ollama + qwen2.5:3b to classify requests locally (no API costs)
-- **Multi-provider support**: Anthropic, OpenAI, Google Gemini, Ollama
+- **Local classification**: Uses Ollama to classify requests locally (no API costs for classification)
+- **Multi-provider support**: Anthropic (tested), OpenAI, Google Gemini, Ollama (untested)
 - **OAuth token support**: Works with Claude Code OAuth tokens (sk-ant-oat*)
 - **OpenAI-compatible API**: Drop-in replacement for existing integrations
-- **OpenClaw compatible**: Optional mode for OpenClaw integration
+- **Configurable classifier model**: Change the local model used for classification in config.yaml
 
 ## Requirements
 
 - Python 3.10+
-- [Ollama](https://ollama.ai) running locally with `qwen2.5:3b` model
-- API key for your chosen provider(s)
+- [Ollama](https://ollama.ai) running locally
+- Anthropic API key (or Claude Code OAuth token)
 
 ## Installation
 
@@ -27,19 +29,20 @@ git clone https://github.com/alexrudloff/llmrouter.git
 cd llmrouter
 
 # Install dependencies
-pip install pyyaml requests
+pip install -r requirements.txt
 
-# Pull the classifier model
+# Pull the classifier model (default: qwen2.5:3b, configurable in config.yaml)
 ollama pull qwen2.5:3b
 
 # Copy and customize config
 cp config.yaml.example config.yaml
-# Edit config.yaml with your preferred model mappings
 ```
 
 ## Configuration
 
-Edit `config.yaml` to customize model routing:
+Edit `config.yaml` to customize:
+
+### Model Routing
 
 ```yaml
 models:
@@ -50,11 +53,20 @@ models:
   super_hard: "anthropic:claude-opus-4-20250514"     # Most capable
 ```
 
-Supported provider formats:
-- `anthropic:claude-*` - Anthropic Claude models
-- `openai:gpt-*` - OpenAI GPT models
-- `google:gemini-*` - Google Gemini models
-- `local:model-name` - Local Ollama models
+### Classifier Model
+
+```yaml
+classifier:
+  model: "qwen2.5:3b"  # Any Ollama model
+  ollama_url: "http://localhost:11434/api/generate"
+```
+
+### Provider Formats
+
+- `anthropic:claude-*` - Anthropic Claude models (tested)
+- `openai:gpt-*` - OpenAI GPT models (untested)
+- `google:gemini-*` - Google Gemini models (untested)
+- `local:model-name` - Local Ollama models (untested)
 
 ## Usage
 

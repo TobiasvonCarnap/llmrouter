@@ -22,8 +22,8 @@ classifier:
 #   - google: Gemini models (requires GOOGLE_API_KEY)
 #
 models:
-  super_easy: "anthropic:claude-haiku-4-5-20251001" # Fast, cheap - local too unreliable
-  easy: "anthropic:claude-haiku-4-5-20251001"       # Fast, cheap
+  super_easy: "anthropic:claude-haiku-4-5-20251001" # Fast, cheap 
+  easy: "anthropic:claude-sonnet-4-20250514"        # Balanced
   medium: "anthropic:claude-sonnet-4-20250514"      # Balanced
   hard: "anthropic:claude-opus-4-20250514"          # Powerful
   super_hard: "anthropic:claude-opus-4-20250514"    # Reserved for future

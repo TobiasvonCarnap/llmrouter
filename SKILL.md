@@ -17,17 +17,9 @@ An intelligent proxy that classifies incoming requests by complexity and routes 
 
 ### Prerequisites
 
-1. **Ollama** (optional - only if using local classification):
-   ```bash
-   ollama pull qwen2.5:3b
-   ```
-
-2. **Python dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Anthropic API key** (or Claude Code OAuth token)
+1. **Python 3.10+** with pip
+2. **Ollama** (optional - only if using local classification)
+3. **Anthropic API key** or Claude Code OAuth token (or other provider key)
 
 ### Setup
 
@@ -36,11 +28,31 @@ An intelligent proxy that classifies incoming requests by complexity and routes 
 git clone https://github.com/alexrudloff/llmrouter.git
 cd llmrouter
 
+# Create virtual environment (required on modern Python)
+python3 -m venv venv
+source venv/bin/activate
+
 # Install dependencies
 pip install -r requirements.txt
 
+# Pull classifier model (if using local classification)
+ollama pull qwen2.5:3b
+
 # Copy and customize config
 cp config.yaml.example config.yaml
+# Edit config.yaml with your API key and model preferences
+```
+
+### Verify Installation
+
+```bash
+# Start the server
+source venv/bin/activate
+python server.py
+
+# In another terminal, test health endpoint
+curl http://localhost:4001/health
+# Should return: {"status": "ok", ...}
 ```
 
 ### Start the Server
@@ -179,14 +191,54 @@ python classifier.py --test
 
 ## Running as macOS Service
 
-Create `~/Library/LaunchAgents/com.llmrouter.plist` and load with:
+Create `~/Library/LaunchAgents/com.llmrouter.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.llmrouter</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/path/to/llmrouter/venv/bin/python</string>
+        <string>/path/to/llmrouter/server.py</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>WorkingDirectory</key>
+    <string>/path/to/llmrouter</string>
+    <key>StandardOutPath</key>
+    <string>/path/to/llmrouter/logs/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/path/to/llmrouter/logs/stderr.log</string>
+</dict>
+</plist>
+```
+
+**Important:** Replace `/path/to/llmrouter` with your actual install path. Must use the venv python, not system python.
+
 ```bash
+# Create logs directory
+mkdir -p ~/path/to/llmrouter/logs
+
+# Load the service
+launchctl load ~/Library/LaunchAgents/com.llmrouter.plist
+
+# Verify it's running
+curl http://localhost:4001/health
+
+# To stop/restart
+launchctl unload ~/Library/LaunchAgents/com.llmrouter.plist
 launchctl load ~/Library/LaunchAgents/com.llmrouter.plist
 ```
 
 ## OpenClaw Configuration
 
-Add to `~/.openclaw/openclaw.json`:
+Add the router as a provider in `~/.openclaw/openclaw.json`:
 
 ```json
 {
@@ -196,16 +248,36 @@ Add to `~/.openclaw/openclaw.json`:
         "baseUrl": "http://localhost:4001/v1",
         "apiKey": "via-router",
         "api": "openai-completions",
-        "models": [{
-          "id": "llm-router",
-          "name": "LLM Router",
-          "input": ["text", "image"],
-          "contextWindow": 200000,
-          "maxTokens": 8192
-        }]
+        "models": [
+          {
+            "id": "llm-router",
+            "name": "LLM Router (Auto-routes by complexity)",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          }
+        ]
       }
     }
-  },
+  }
+}
+```
+
+**Note:** Cost is set to 0 because actual costs depend on which model the router selects. The router logs which model handled each request.
+
+### Set as Default Model (Optional)
+
+To use the router for all agents by default, add:
+
+```json
+{
   "agents": {
     "defaults": {
       "model": {
@@ -216,11 +288,61 @@ Add to `~/.openclaw/openclaw.json`:
 }
 ```
 
-Start with `python server.py --openclaw` to display actual model names in OpenClaw.
+### Using with OAuth Tokens
+
+If your `config.yaml` uses an Anthropic OAuth token from OpenClaw's `~/.openclaw/auth-profiles.json`, the router automatically handles Claude Code identity headers.
+
+### OpenClaw Compatibility Mode
+
+Start with `--openclaw` to display actual model names in OpenClaw UI:
+
+```bash
+python server.py --openclaw
+```
+
+This rewrites the model name in responses so OpenClaw shows "anthropic:claude-sonnet-4" instead of "localrouter/llm-router".
 
 ## Common Tasks
 
 - **Check server status**: `curl http://localhost:4001/health`
 - **View current config**: `cat config.yaml`
 - **Test a classification**: `python classifier.py "your message"`
+- **Run classification tests**: `python classifier.py --test`
 - **Restart server**: Stop and run `python server.py` again
+- **View logs** (if running as service): `tail -f logs/stdout.log`
+
+## Troubleshooting
+
+### "externally-managed-environment" error
+Python 3.11+ requires virtual environments. Create one:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### "Connection refused" on port 4001
+Server isn't running. Start it:
+```bash
+source venv/bin/activate && python server.py
+```
+
+### Classification returns wrong complexity
+Edit `ROUTES.md` to tune classification rules. The classifier reads this file to determine complexity levels.
+
+### Ollama errors / "model not found"
+Ensure Ollama is running and the model is pulled:
+```bash
+ollama serve  # Start Ollama if not running
+ollama pull qwen2.5:3b
+```
+
+### OAuth token not working
+Ensure your token in `config.yaml` starts with `sk-ant-oat`. The router auto-detects OAuth tokens and adds required identity headers.
+
+### LaunchAgent not starting
+Check logs and ensure paths are absolute:
+```bash
+cat ~/Library/LaunchAgents/com.llmrouter.plist  # Verify paths
+cat /path/to/llmrouter/logs/stderr.log  # Check for errors
+```

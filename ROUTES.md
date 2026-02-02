@@ -16,21 +16,28 @@
 | Greetings | Super Easy | Hey, hi, what's up, how are you |
 | Simple acknowledgments | Super Easy | OK, thanks, got it, sure |
 | Very basic Q&A | Super Easy | What time is it? Simple yes/no questions |
+| Farewells | Super Easy | Bye, see you, talk later |
+| Single word responses | Super Easy | Yes, no, maybe, done |
 | Basic chat / Q&A | Easy | Quick answers, casual conversation (not emails!) |
 | Reminders | Easy | Setting simple reminders |
 | Status checks | Easy | Reading and summarizing state |
 | Simple questions | Easy | Math calculations, facts, definitions (no code, no emails) |
+| Format conversion | Easy | Convert units, dates, simple data transforms |
 | Email tasks | Medium | Writing, sending, drafting any emails |
 | Writing any code | Medium | Functions, scripts, even simple ones |
-| Email judgment | Medium | Triage, prioritization, tone decisions |
 | Research | Medium | Gathering and summarizing information |
 | Coding - bug fixes | Medium | Single file changes, clear scope |
+| Image description | Medium | Describe what's in an image, read text from screenshots |
 | Coding - complex/refactor | Hard | Multi-file, architecture decisions |
 | Deep thinking / planning | Hard | When reasoning depth matters |
 | Debugging complex issues | Hard | Segfaults, race conditions, system-level bugs |
+| Image analysis - detailed | Hard | Extract structured data, compare images, diagrams |
+| Tool use - chained | Hard | Multiple sequential tool calls, conditional logic |
 | Advanced algorithms | Super Hard | Complex optimization, novel approaches |
 | Multi-step reasoning | Super Hard | Proofs, deep analysis, research-level questions |
 | System architecture | Super Hard | Designing entire systems, critical decisions |
+| Agentic workflows | Super Hard | Autonomous multi-step tasks, complex tool orchestration |
+| Long context - synthesis | Super Hard | Synthesizing insights across very large documents |
 
 ## Pipelines (multi-model workflows)
 
@@ -68,6 +75,8 @@ Default Anthropic setup:
 - 2025-02-01: Initial classification table created
 - 2025-02-01: Upgraded to 5-tier system (super_easy/easy/medium/hard/super_hard)
 - 2025-02-01: Renamed from ROUTES.md to CLASSIFIER.md, then back to ROUTES.md
+- 2025-02-02: Added image analysis, tool use, long context, and agentic workflow categories
+- 2025-02-02: Balanced examples to 5 per complexity level to avoid classifier bias
 
 ---
 

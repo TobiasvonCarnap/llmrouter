@@ -236,6 +236,7 @@ def _classify_with_openai(prompt: str, model: str, api_key: str) -> str:
 
 
 DEFAULT_GOOGLE_MODEL = "gemini-2.0-flash"
+DEFAULT_KIMI_MODEL = "moonshot-v1-8k"
 
 
 def _classify_with_google(prompt: str, model: str, api_key: str) -> str:
@@ -258,6 +259,31 @@ def _classify_with_google(prompt: str, model: str, api_key: str) -> str:
         parts = candidates[0].get("content", {}).get("parts", [])
         if parts and parts[0].get("text"):
             return _extract_complexity(parts[0]["text"])
+    return ""
+
+
+def _classify_with_kimi(prompt: str, model: str, api_key: str) -> str:
+    """Classify using Kimi/Moonshot API."""
+    response = requests.post(
+        "https://api.moonshot.ai/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 50
+        },
+        timeout=30
+    )
+    response.raise_for_status()
+    resp_json = response.json()
+
+    # Extract text from response
+    choices = resp_json.get("choices", [])
+    if choices and choices[0].get("message", {}).get("content"):
+        return _extract_complexity(choices[0]["message"]["content"])
     return ""
 
 
@@ -302,6 +328,12 @@ def classify(message: str, rules: str = None, model: str = None,
             if model is None:
                 model = DEFAULT_GOOGLE_MODEL
             result = _classify_with_google(prompt, model, api_key)
+        elif provider == "kimi":
+            if not api_key:
+                raise ValueError("API key required for Kimi classification")
+            if model is None:
+                model = DEFAULT_KIMI_MODEL
+            result = _classify_with_kimi(prompt, model, api_key)
         else:
             # Default to local/Ollama
             if model is None:

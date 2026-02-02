@@ -11,7 +11,7 @@ An intelligent proxy that classifies incoming requests by complexity and routes 
 ## Features
 
 - **5-tier complexity routing**: super_easy, easy, medium, hard, super_hard
-- **Local classification**: Uses Ollama to classify requests locally (no API costs for classification)
+- **Local classification support**: It can use Ollama to classify requests locally (no API costs for classification)
 - **Multi-provider support**: Anthropic, OpenAI, Google Gemini, Ollama (all tested)
 - **Full OpenAI support**: GPT and reasoning models with automatic API parameter handling
 - **OAuth token support**: Works with Claude Code OAuth tokens (sk-ant-oat*)

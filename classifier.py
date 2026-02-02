@@ -21,72 +21,29 @@ ROUTES_PATH = Path(__file__).parent / "ROUTES.md"
 # Valid complexity levels (single source of truth)
 COMPLEXITY_LEVELS = ("super_easy", "easy", "medium", "hard", "super_hard")
 
-# Default rules if ROUTES.md can't be parsed
-DEFAULT_RULES = """
-- super_easy: greetings, acknowledgments, very basic yes/no questions
-- easy: casual chat, simple questions, reminders, quick facts
-- medium: coding, writing, email, research, moderate tasks
-- hard: complex reasoning, architecture, debugging, multi-step analysis
-- super_hard: advanced algorithms, multi-step proofs, system design
+# Fallback prompt if ROUTES.md can't be read
+DEFAULT_PROMPT = """Classify by complexity. Reply with ONE word: super_easy, easy, medium, hard, super_hard
+
+super_easy: greetings, acknowledgments, yes/no, farewells, single words
+easy: casual Q&A, reminders, status checks, simple facts, format conversion
+medium: email, any code, research, bug fixes, image description
+hard: complex code, planning, hard debugging, image analysis, chained tools
+super_hard: algorithms, proofs, system design, agentic tasks, long synthesis
+
+Message: {MESSAGE}
+
+Complexity:
 """
 
-def load_classifier_rules():
-    """Load classification rules from ROUTES.md"""
+def _build_prompt(message: str) -> str:
+    """Build the classification prompt from ROUTES.md template."""
+    truncated = message[:500] + "..." if len(message) > 500 else message
     try:
-        content = ROUTES_PATH.read_text()
-
-        # Extract the classification table section
-        lines = content.split('\n')
-        in_table = False
-        rules = []
-
-        for line in lines:
-            # Start of classification table
-            if '| Task Type | Complexity |' in line:
-                in_table = True
-                continue
-
-            # Skip header separator
-            if in_table and '|---' in line:
-                continue
-
-            # End of table (empty line or new section)
-            if in_table and (not line.strip() or line.startswith('#')):
-                break
-
-            # Parse table rows
-            if in_table and line.strip().startswith('|'):
-                parts = [p.strip() for p in line.split('|')[1:-1]]
-                if len(parts) >= 3:
-                    task_type = parts[0]
-                    complexity = parts[1].lower().replace(' ', '_')
-                    notes = parts[2]
-
-                    # Include all 5 complexity levels
-                    if complexity in COMPLEXITY_LEVELS:
-                        rules.append(f"- {complexity}: {task_type} — {notes}")
-
-        if rules:
-            return '\n'.join(rules)
-        else:
-            print("Warning: No rules found in ROUTES.md, using defaults", file=sys.stderr)
-            return DEFAULT_RULES
-
+        template = ROUTES_PATH.read_text()
     except Exception as e:
         print(f"Warning: Could not load ROUTES.md: {e}", file=sys.stderr)
-        return DEFAULT_RULES
-
-def _build_prompt(message: str, rules: str) -> str:
-    """Build the classification prompt."""
-    truncated = message[:500] + "..." if len(message) > 500 else message
-    return f"""Classify this message by complexity: super_easy, easy, medium, hard, or super_hard.
-
-Rules:
-{rules}
-
-Message: "{truncated}"
-
-Complexity (answer with just one of: super_easy, easy, medium, hard, super_hard):"""
+        template = DEFAULT_PROMPT
+    return template.replace("{MESSAGE}", truncated)
 
 
 def _extract_complexity(result_text: str) -> str:
@@ -287,26 +244,23 @@ def _classify_with_kimi(prompt: str, model: str, api_key: str) -> str:
     return ""
 
 
-def classify(message: str, rules: str = None, model: str = None,
-             provider: str = None, ollama_url: str = None, api_key: str = None) -> str:
+def classify(message: str, model: str = None, provider: str = None,
+             ollama_url: str = None, api_key: str = None) -> str:
     """
     Classify a message into super_easy/easy/medium/hard/super_hard.
     Returns the complexity level (lowercase with underscore).
 
     Args:
         message: The message to classify
-        rules: Classification rules (loaded from ROUTES.md if not provided)
         model: Model to use (defaults vary by provider)
         provider: "local" (Ollama), "anthropic", or "openai" (default: local)
         ollama_url: Ollama API URL (default: http://localhost:11434/api/generate)
         api_key: API key for remote providers
     """
-    if rules is None:
-        rules = load_classifier_rules()
     if provider is None:
         provider = DEFAULT_PROVIDER
 
-    prompt = _build_prompt(message, rules)
+    prompt = _build_prompt(message)
 
     try:
         if provider in ("api", "anthropic"):

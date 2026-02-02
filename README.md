@@ -42,7 +42,7 @@ Edit `config.yaml` to customize model routing:
 ```yaml
 models:
   super_easy: "anthropic:claude-haiku-4-5-20251001"  # Fast, cheap
-  easy: "anthropic:claude-haiku-4-5-20251001"        # Fast, cheap
+  easy: "anthropic:claude-sonnet-4-20250514"         # Balanced
   medium: "anthropic:claude-sonnet-4-20250514"       # Balanced
   hard: "anthropic:claude-opus-4-20250514"           # Powerful
   super_hard: "anthropic:claude-opus-4-20250514"     # Most capable

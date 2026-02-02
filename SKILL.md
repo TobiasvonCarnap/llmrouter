@@ -54,7 +54,7 @@ Options:
 - `--host HOST` - Host to bind (default: 127.0.0.1)
 - `--config PATH` - Config file path (default: config.yaml)
 - `--log` - Enable verbose logging
-- `--openclaw` - Enable OpenClaw compatibility mode
+- `--openclaw` - Enable OpenClaw compatibility (rewrites model name in system prompt)
 
 ## Configuration
 
@@ -141,6 +141,40 @@ Create `~/Library/LaunchAgents/com.llmrouter.plist` and load with:
 ```bash
 launchctl load ~/Library/LaunchAgents/com.llmrouter.plist
 ```
+
+## OpenClaw Configuration
+
+Add to `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "models": {
+    "providers": {
+      "localrouter": {
+        "baseUrl": "http://localhost:4001/v1",
+        "apiKey": "via-router",
+        "api": "openai-completions",
+        "models": [{
+          "id": "llm-router",
+          "name": "LLM Router",
+          "input": ["text", "image"],
+          "contextWindow": 200000,
+          "maxTokens": 8192
+        }]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "localrouter/llm-router"
+      }
+    }
+  }
+}
+```
+
+Start with `python server.py --openclaw` to display actual model names in OpenClaw.
 
 ## Common Tasks
 

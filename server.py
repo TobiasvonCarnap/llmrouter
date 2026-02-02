@@ -46,12 +46,13 @@ from classifier import classify
 CONFIG = {}
 MODEL_MAP = {}
 PROVIDER_URLS = {}
-OPENCLAW_MODE = False  # Set via --openclaw flag
+PROVIDER_KEYS = {}  # API keys per provider from config
+OPENCLAW_MODE = False  # Set via --openclaw flag (only for model name rewriting in system prompt)
 
 
 def load_config(config_path="config.yaml"):
     """Load configuration from YAML file"""
-    global CONFIG, MODEL_MAP, PROVIDER_URLS
+    global CONFIG, MODEL_MAP, PROVIDER_URLS, PROVIDER_KEYS
 
     config_file = Path(config_path)
     if not config_file.exists():
@@ -68,12 +69,22 @@ def load_config(config_path="config.yaml"):
             print("Error: No model mappings found in config", file=sys.stderr)
             sys.exit(1)
 
-        # Extract provider URLs
+        # Extract provider URLs and API keys
+        providers = CONFIG.get("providers", {})
         PROVIDER_URLS = {
-            "anthropic": CONFIG.get("providers", {}).get("anthropic", {}).get("url", "https://api.anthropic.com/v1/messages"),
-            "openai": CONFIG.get("providers", {}).get("openai", {}).get("url", "https://api.openai.com/v1/chat/completions"),
-            "google": CONFIG.get("providers", {}).get("google", {}).get("url", "https://generativelanguage.googleapis.com/v1beta/models"),
-            "ollama": CONFIG.get("providers", {}).get("ollama", {}).get("url", "http://localhost:11434/api/chat"),
+            "anthropic": providers.get("anthropic", {}).get("url", "https://api.anthropic.com/v1/messages"),
+            "openai": providers.get("openai", {}).get("url", "https://api.openai.com/v1/chat/completions"),
+            "google": providers.get("google", {}).get("url", "https://generativelanguage.googleapis.com/v1beta/models"),
+            "deepseek": providers.get("deepseek", {}).get("url", "https://api.deepseek.com/v1/chat/completions"),
+            "kimi": providers.get("kimi", {}).get("url", "https://api.moonshot.cn/v1/chat/completions"),
+            "ollama": providers.get("ollama", {}).get("url", "http://localhost:11434/api/chat"),
+        }
+
+        # Extract API keys (if configured)
+        PROVIDER_KEYS = {
+            name: cfg.get("api_key")
+            for name, cfg in providers.items()
+            if cfg.get("api_key")
         }
 
         return CONFIG
@@ -89,6 +100,11 @@ def parse_provider_model(provider_model_str):
         return parts[0], parts[1]
     # Default to anthropic if no provider specified
     return "anthropic", provider_model_str
+
+
+def get_provider_key(provider, request_key=None):
+    """Get API key for a provider. Config key takes priority, falls back to request header."""
+    return PROVIDER_KEYS.get(provider) or request_key
 
 
 def extract_text_content(content):
@@ -189,13 +205,13 @@ def from_claude_code_name(name):
     return CLAUDE_CODE_TOOLS_REVERSE.get(name, name)
 
 
-def convert_openai_tools_to_anthropic(openai_tools, use_oauth=False, openclaw_mode=False):
+def convert_openai_tools_to_anthropic(openai_tools, use_oauth=False):
     """Convert OpenAI tool format to Anthropic tool format"""
     if not openai_tools:
         return None
 
-    # Only remap tool names for OAuth + openclaw mode
-    should_remap = use_oauth and openclaw_mode
+    # Remap tool names for OAuth tokens (Claude Code requires exact casing)
+    should_remap = use_oauth
 
     anthropic_tools = []
     for tool in openai_tools:
@@ -295,7 +311,7 @@ def call_anthropic_model(model, messages, max_tokens, system=None, api_key=None,
         ]
 
     if tools:
-        anthropic_tools = convert_openai_tools_to_anthropic(tools, use_oauth=use_oauth, openclaw_mode=OPENCLAW_MODE)
+        anthropic_tools = convert_openai_tools_to_anthropic(tools, use_oauth=use_oauth)
         if anthropic_tools:
             params["tools"] = anthropic_tools
 
@@ -398,6 +414,56 @@ def call_google_model(model, messages, max_tokens, system=None, api_key=None, to
     }
 
 
+def call_openai_compatible(provider_name, model, messages, max_tokens, system=None, api_key=None, tools=None):
+    """Generic OpenAI-compatible API call (for DeepSeek, Kimi, etc.)"""
+    if not api_key:
+        raise Exception(f"No API key for {provider_name}")
+
+    openai_messages = []
+    if system:
+        openai_messages.append({"role": "system", "content": system})
+    openai_messages.extend(messages)
+
+    response = requests.post(
+        PROVIDER_URLS[provider_name],
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "messages": openai_messages,
+            "max_tokens": max_tokens,
+        },
+        timeout=300,
+    )
+
+    if response.status_code != 200:
+        raise Exception(f"{provider_name} error: {response.text}")
+
+    data = response.json()
+
+    return {
+        "id": data.get("id", f"{provider_name}-{int(time.time())}"),
+        "content": [{"type": "text", "text": data["choices"][0]["message"]["content"]}],
+        "usage": {
+            "input_tokens": data.get("usage", {}).get("prompt_tokens", 0),
+            "output_tokens": data.get("usage", {}).get("completion_tokens", 0)
+        },
+        "stop_reason": data["choices"][0].get("finish_reason", "stop")
+    }
+
+
+def call_deepseek_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
+    """Call DeepSeek API (OpenAI-compatible)"""
+    return call_openai_compatible("deepseek", model, messages, max_tokens, system, api_key, tools)
+
+
+def call_kimi_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
+    """Call Kimi/Moonshot API (OpenAI-compatible)"""
+    return call_openai_compatible("kimi", model, messages, max_tokens, system, api_key, tools)
+
+
 # Provider registry - maps provider name to handler function
 # All handlers have signature: (model, messages, max_tokens, system, api_key, tools)
 PROVIDERS = {
@@ -405,6 +471,8 @@ PROVIDERS = {
     "anthropic": call_anthropic_model,
     "openai": call_openai_model,
     "google": call_google_model,
+    "deepseek": call_deepseek_model,
+    "kimi": call_kimi_model,
 }
 
 
@@ -463,7 +531,7 @@ class RouterHandler(BaseHTTPRequestHandler):
         self._send_chunk(self._create_chunk(response_id, model_name, {"content": content}))
         self._end_stream(response_id, model_name, "stop", usage)
 
-    def send_streaming_tool_response(self, response_id, model_name, content_blocks, usage, stop_reason):
+    def send_streaming_tool_response(self, response_id, model_name, content_blocks, usage, stop_reason, use_oauth=False):
         """Send OpenAI-compatible streaming response with tool calls."""
         self._start_stream(response_id, model_name)
 
@@ -475,7 +543,8 @@ class RouterHandler(BaseHTTPRequestHandler):
                 ))
             elif block.get("type") == "tool_use":
                 tool_name = block.get("name", "")
-                if OPENCLAW_MODE:
+                # Remap tool names back for OAuth tokens
+                if use_oauth:
                     tool_name = from_claude_code_name(tool_name)
 
                 delta = {
@@ -545,12 +614,14 @@ class RouterHandler(BaseHTTPRequestHandler):
             # Classify the message
             start = time.time()
             classifier_config = CONFIG.get("classifier", {})
+            # For API classification, use anthropic key from config or fall back to request header
+            classifier_key = get_provider_key("anthropic", api_key) if classifier_config.get("provider") == "api" else None
             complexity = classify(
                 user_message,
                 model=classifier_config.get("model"),
                 provider=classifier_config.get("provider"),
                 ollama_url=classifier_config.get("ollama_url"),
-                api_key=api_key,  # Pass through for remote classification
+                api_key=classifier_key,
             )
             classify_time = (time.time() - start) * 1000
 
@@ -643,8 +714,10 @@ class RouterHandler(BaseHTTPRequestHandler):
                 if not provider_fn:
                     self.send_error_json(f"Unknown provider: {provider}", 400)
                     return
+                # Use provider-specific key from config, fall back to request header
+                effective_key = get_provider_key(provider, api_key)
                 provider_response = provider_fn(
-                    target_model, provider_messages, max_tokens, system_content, api_key, tools
+                    target_model, provider_messages, max_tokens, system_content, effective_key, tools
                 )
             except Exception as e:
                 self.send_error_json(str(e), 500)
@@ -670,7 +743,9 @@ class RouterHandler(BaseHTTPRequestHandler):
 
             if has_tool_use:
                 # Send streaming response with tool calls
-                self.send_streaming_tool_response(response_id, model_name, content_blocks, usage, anthropic_response.get("stop_reason", "tool_use"))
+                # Check if we used OAuth token (for tool name remapping)
+                used_oauth = is_oauth_token(effective_key) if provider == "anthropic" else False
+                self.send_streaming_tool_response(response_id, model_name, content_blocks, usage, anthropic_response.get("stop_reason", "tool_use"), use_oauth=used_oauth)
             else:
                 # Extract text content
                 response_content = ""

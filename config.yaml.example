@@ -30,14 +30,24 @@ models:
   hard: "anthropic:claude-opus-4-20250514"          # Powerful
   super_hard: "anthropic:claude-opus-4-20250514"    # Reserved for future
 
-# Provider API endpoints (don't change unless using custom deployments)
+# Provider API endpoints and keys
+# api_key: Set per provider. If not set, falls back to request Authorization header.
 providers:
   anthropic:
     url: "https://api.anthropic.com/v1/messages"
     version: "2023-06-01"
+    # api_key: "sk-ant-..."  # API key or OAuth token
   openai:
     url: "https://api.openai.com/v1/chat/completions"
+    # api_key: "sk-proj-..."
   google:
     url: "https://generativelanguage.googleapis.com/v1beta/models"
+    # api_key: "..."
+  deepseek:
+    url: "https://api.deepseek.com/v1/chat/completions"
+    # api_key: "sk-..."
+  kimi:
+    url: "https://api.moonshot.cn/v1/chat/completions"
+    # api_key: "sk-..."
   ollama:
     url: "http://localhost:11434/api/chat"

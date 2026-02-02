@@ -89,11 +89,35 @@ Choose remote if:
 - Your machine can't run local models
 - You want simpler setup (no Ollama required)
 
+### Provider API Keys
+
+Configure API keys per provider in `config.yaml`. Keys in config take priority over the request Authorization header.
+
+```yaml
+providers:
+  anthropic:
+    url: "https://api.anthropic.com/v1/messages"
+    api_key: "sk-ant-..."  # Your Anthropic key or OAuth token
+  openai:
+    url: "https://api.openai.com/v1/chat/completions"
+    api_key: "sk-proj-..."
+  deepseek:
+    url: "https://api.deepseek.com/v1/chat/completions"
+    api_key: "sk-..."
+  kimi:
+    url: "https://api.moonshot.cn/v1/chat/completions"
+    api_key: "sk-..."
+```
+
+This allows routing to multiple providers without passing different keys per request.
+
 ### Provider Formats
 
 - `anthropic:claude-*` - Anthropic Claude models (tested)
 - `openai:gpt-*` - OpenAI GPT models (untested)
 - `google:gemini-*` - Google Gemini models (untested)
+- `deepseek:deepseek-*` - DeepSeek models (untested)
+- `kimi:moonshot-*` - Kimi/Moonshot models (untested)
 - `local:model-name` - Local Ollama models (untested)
 
 ## Usage
@@ -109,7 +133,7 @@ Options:
 - `--host HOST` - Host to bind to (default: 127.0.0.1)
 - `--config PATH` - Path to config file (default: config.yaml)
 - `--log` - Enable verbose request/response logging
-- `--openclaw` - Enable OpenClaw compatibility mode
+- `--openclaw` - Enable OpenClaw compatibility (rewrites model name in system prompt)
 
 ### Make requests
 
@@ -166,6 +190,64 @@ Then load it:
 ```bash
 launchctl load ~/Library/LaunchAgents/com.llmrouter.plist
 ```
+
+## OpenClaw Integration
+
+To use llmrouter with [OpenClaw](https://github.com/openclaw/openclaw), add a provider to your `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "models": {
+    "providers": {
+      "localrouter": {
+        "baseUrl": "http://localhost:4001/v1",
+        "apiKey": "via-router",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "llm-router",
+            "name": "LLM Router (Auto-routes by complexity)",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+Then set it as your default model in `agents.defaults.model.primary`:
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "localrouter/llm-router"
+      }
+    }
+  }
+}
+```
+
+Start the server with OpenClaw compatibility mode:
+
+```bash
+python server.py --openclaw
+```
+
+The `--openclaw` flag enables model name rewriting in system prompts so OpenClaw displays the actual model being used (rewrites `model=localrouter/...` to the actual provider/model).
+
+Note: Tool name remapping for Claude Code OAuth tokens happens automatically when an OAuth token is detected.
 
 ## Classification Rules
 

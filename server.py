@@ -169,19 +169,28 @@ def to_claude_code_name(name):
     """Convert tool name to Claude Code's official casing if it matches"""
     return CLAUDE_CODE_TOOLS.get(name.lower(), name)
 
+# Reverse mapping for converting back
+CLAUDE_CODE_TOOLS_REVERSE = {v: k for k, v in CLAUDE_CODE_TOOLS.items()}
 
-def convert_openai_tools_to_anthropic(openai_tools, use_oauth=False):
+def from_claude_code_name(name):
+    """Convert Claude Code tool name back to original lowercase"""
+    return CLAUDE_CODE_TOOLS_REVERSE.get(name, name)
+
+
+def convert_openai_tools_to_anthropic(openai_tools, use_oauth=False, openclaw_mode=False):
     """Convert OpenAI tool format to Anthropic tool format"""
     if not openai_tools:
         return None
+
+    # Only remap tool names for OAuth + openclaw mode
+    should_remap = use_oauth and openclaw_mode
 
     anthropic_tools = []
     for tool in openai_tools:
         if tool.get("type") == "function":
             func = tool.get("function", {})
             name = func.get("name", "")
-            # Remap to Claude Code names for OAuth
-            if use_oauth:
+            if should_remap:
                 name = to_claude_code_name(name)
             anthropic_tools.append({
                 "name": name,
@@ -191,7 +200,7 @@ def convert_openai_tools_to_anthropic(openai_tools, use_oauth=False):
         else:
             # Already in Anthropic format or custom format
             name = tool.get("name", "")
-            if use_oauth:
+            if should_remap:
                 name = to_claude_code_name(name)
             anthropic_tools.append({
                 **tool,
@@ -274,7 +283,7 @@ def call_anthropic_model(model, messages, max_tokens, system=None, api_key=None,
         ]
 
     if tools:
-        anthropic_tools = convert_openai_tools_to_anthropic(tools, use_oauth=use_oauth)
+        anthropic_tools = convert_openai_tools_to_anthropic(tools, use_oauth=use_oauth, openclaw_mode=OPENCLAW_MODE)
         if anthropic_tools:
             params["tools"] = anthropic_tools
 
@@ -483,6 +492,11 @@ class RouterHandler(BaseHTTPRequestHandler):
                 self.wfile.write(f"data: {json.dumps(text_chunk)}\n\n".encode())
 
             elif block.get("type") == "tool_use":
+                # Map tool name back to original if in openclaw mode
+                tool_name = block.get("name", "")
+                if OPENCLAW_MODE:
+                    tool_name = from_claude_code_name(tool_name)
+
                 # Send tool call
                 tool_chunk = {
                     "id": response_id,
@@ -497,7 +511,7 @@ class RouterHandler(BaseHTTPRequestHandler):
                                 "id": block.get("id", ""),
                                 "type": "function",
                                 "function": {
-                                    "name": block.get("name", ""),
+                                    "name": tool_name,
                                     "arguments": json.dumps(block.get("input", {}))
                                 }
                             }]
@@ -507,7 +521,7 @@ class RouterHandler(BaseHTTPRequestHandler):
                 }
                 self.wfile.write(f"data: {json.dumps(tool_chunk)}\n\n".encode())
                 tool_call_index += 1
-                log(f"  Tool call: {block.get('name', 'unknown')}")
+                log(f"  Tool call: {tool_name}")
 
         # Send finish chunk
         finish_reason = "tool_calls" if stop_reason == "tool_use" else "stop"
@@ -579,10 +593,18 @@ class RouterHandler(BaseHTTPRequestHandler):
                 self.send_error_json("No user message found", 400)
                 return
             
+            # Extract tools from request
+            tools = request.get("tools")
+
             # Classify the message
             start = time.time()
             complexity = classify(user_message)
             classify_time = (time.time() - start) * 1000
+
+            # If tools are present, bump super_easy to easy (tool use requires more capable model)
+            if tools and complexity == "super_easy":
+                complexity = "easy"
+                log(f"  Bumped super_easy -> easy (tools present)")
 
             log(f"  Classifying ({len(user_message)} chars): '{user_message[:100]}...'")
             log(f"  -> {complexity} in {classify_time:.0f}ms")
@@ -592,9 +614,6 @@ class RouterHandler(BaseHTTPRequestHandler):
             provider, target_model = parse_provider_model(provider_model)
 
             log(f"  '{user_message[:50]}...' -> {complexity} -> {provider}:{target_model} ({classify_time:.0f}ms)")
-            
-            # Extract tools from request
-            tools = request.get("tools")
 
             # Build provider-agnostic message format
             provider_messages = []

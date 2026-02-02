@@ -333,15 +333,119 @@ def call_anthropic_model(model, messages, max_tokens, system=None, api_key=None,
 
 
 def call_openai_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
-    """Call OpenAI API (tools not yet implemented)"""
+    """Call OpenAI API with tool support.
+
+    Messages come in Anthropic format (content blocks), need conversion to OpenAI format.
+    Tools come in Anthropic format, need conversion to OpenAI function format.
+    """
     if not api_key:
         raise Exception("No API key provided in Authorization header")
 
-    # Prepend system message if provided
+    # Convert Anthropic-format messages to OpenAI format
     openai_messages = []
     if system:
         openai_messages.append({"role": "system", "content": system})
-    openai_messages.extend(messages)
+
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+
+        # Handle Anthropic content blocks
+        if isinstance(content, list):
+            # Check for tool_use or tool_result blocks
+            text_parts = []
+            tool_calls = []
+            tool_results = []
+
+            for block in content:
+                if block.get("type") == "text":
+                    text_parts.append(block.get("text", ""))
+                elif block.get("type") == "tool_use":
+                    # Convert to OpenAI tool_call format
+                    tool_calls.append({
+                        "id": block.get("id", ""),
+                        "type": "function",
+                        "function": {
+                            "name": block.get("name", ""),
+                            "arguments": json.dumps(block.get("input", {}))
+                        }
+                    })
+                elif block.get("type") == "tool_result":
+                    tool_results.append({
+                        "tool_call_id": block.get("tool_use_id", ""),
+                        "content": block.get("content", "")
+                    })
+                elif block.get("type") == "image":
+                    # Convert image blocks to OpenAI format
+                    source = block.get("source", {})
+                    if source.get("type") == "base64":
+                        text_parts.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{source.get('media_type', 'image/png')};base64,{source.get('data', '')}"
+                            }
+                        })
+
+            if tool_results:
+                # Tool results go as separate tool messages
+                for tr in tool_results:
+                    openai_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tr["tool_call_id"],
+                        "content": tr["content"] if isinstance(tr["content"], str) else json.dumps(tr["content"])
+                    })
+            elif tool_calls:
+                # Assistant message with tool calls
+                msg_content = "\n".join(text_parts) if text_parts else None
+                openai_msg = {"role": "assistant"}
+                if msg_content:
+                    openai_msg["content"] = msg_content
+                openai_msg["tool_calls"] = tool_calls
+                openai_messages.append(openai_msg)
+            else:
+                # Regular message with text/image content
+                if len(text_parts) == 1 and isinstance(text_parts[0], str):
+                    openai_messages.append({"role": role, "content": text_parts[0]})
+                elif text_parts:
+                    # Multi-part content (text + images)
+                    openai_content = []
+                    for part in text_parts:
+                        if isinstance(part, str):
+                            openai_content.append({"type": "text", "text": part})
+                        else:
+                            openai_content.append(part)
+                    openai_messages.append({"role": role, "content": openai_content})
+        else:
+            # Simple string content
+            openai_messages.append({"role": role, "content": content})
+
+    # Build request payload
+    payload = {
+        "model": model,
+        "messages": openai_messages,
+        "max_tokens": max_tokens,
+    }
+
+    # Convert tools to OpenAI function format
+    # Tools may come in OpenAI format (from OpenClaw) or Anthropic format
+    if tools:
+        openai_tools = []
+        for tool in tools:
+            # Check if already in OpenAI format (has "function" key)
+            if tool.get("type") == "function" and "function" in tool:
+                # Already OpenAI format, pass through
+                openai_tools.append(tool)
+            else:
+                # Anthropic format - convert to OpenAI
+                openai_tools.append({
+                    "type": "function",
+                    "function": {
+                        "name": tool.get("name", ""),
+                        "description": tool.get("description", ""),
+                        "parameters": tool.get("input_schema", {})
+                    }
+                })
+        payload["tools"] = openai_tools
 
     response = requests.post(
         PROVIDER_URLS["openai"],
@@ -349,11 +453,7 @@ def call_openai_model(model, messages, max_tokens, system=None, api_key=None, to
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
-        json={
-            "model": model,
-            "messages": openai_messages,
-            "max_tokens": max_tokens,
-        },
+        json=payload,
         timeout=300,
     )
 
@@ -361,16 +461,41 @@ def call_openai_model(model, messages, max_tokens, system=None, api_key=None, to
         raise Exception(f"OpenAI error: {response.text}")
 
     data = response.json()
+    choice = data["choices"][0]
+    message = choice.get("message", {})
 
-    # Convert OpenAI format to Anthropic-like format
+    # Convert OpenAI response to Anthropic-like format
+    content_blocks = []
+
+    # Add text content if present
+    if message.get("content"):
+        content_blocks.append({"type": "text", "text": message["content"]})
+
+    # Convert tool_calls to Anthropic tool_use blocks
+    if message.get("tool_calls"):
+        for tc in message["tool_calls"]:
+            content_blocks.append({
+                "type": "tool_use",
+                "id": tc.get("id", ""),
+                "name": tc.get("function", {}).get("name", ""),
+                "input": json.loads(tc.get("function", {}).get("arguments", "{}"))
+            })
+
+    # Determine stop reason
+    finish_reason = choice.get("finish_reason", "stop")
+    if finish_reason == "tool_calls":
+        stop_reason = "tool_use"
+    else:
+        stop_reason = finish_reason
+
     return {
         "id": data["id"],
-        "content": [{"type": "text", "text": data["choices"][0]["message"]["content"]}],
+        "content": content_blocks if content_blocks else [{"type": "text", "text": ""}],
         "usage": {
             "input_tokens": data["usage"]["prompt_tokens"],
             "output_tokens": data["usage"]["completion_tokens"]
         },
-        "stop_reason": data["choices"][0].get("finish_reason", "stop")
+        "stop_reason": stop_reason
     }
 
 

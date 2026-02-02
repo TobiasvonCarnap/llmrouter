@@ -615,6 +615,22 @@ class RouterHandler(BaseHTTPRequestHandler):
                         system_content = content
                     continue
 
+                # Convert OpenAI tool messages to Anthropic format
+                # OpenAI: {"role": "tool", "tool_call_id": "xxx", "content": "result"}
+                # Anthropic: {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "xxx", "content": "result"}]}
+                if role == "tool":
+                    tool_call_id = msg.get("tool_call_id", "")
+                    tool_content = content if isinstance(content, str) else json.dumps(content)
+                    provider_messages.append({
+                        "role": "user",
+                        "content": [{
+                            "type": "tool_result",
+                            "tool_use_id": tool_call_id,
+                            "content": tool_content
+                        }]
+                    })
+                    continue
+
                 # Convert content format to Anthropic-style (works for most providers)
                 if isinstance(content, list):
                     provider_messages.append({"role": role, "content": content})

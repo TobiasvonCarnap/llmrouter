@@ -11,7 +11,7 @@ An intelligent proxy that classifies incoming requests by complexity and routes 
 
 **Works with [OpenClaw](https://github.com/openclaw/openclaw)** to reduce token usage and API costs by routing simple requests to smaller models.
 
-**Status:** Tested with Anthropic, OpenAI (including o-series), Google Gemini, Kimi/Moonshot, and Ollama.
+**Status:** Tested with Anthropic, OpenAI, Google Gemini, Kimi/Moonshot, and Ollama.
 
 ## Quick Start
 
@@ -71,7 +71,7 @@ models:
   hard: "anthropic:claude-opus-4-20250514"
   super_hard: "anthropic:claude-opus-4-20250514"
 
-# OpenAI routing (including o-series reasoning models)
+# OpenAI routing
 models:
   super_easy: "openai:gpt-4o-mini"
   easy: "openai:gpt-4o-mini"
@@ -88,7 +88,7 @@ models:
   super_hard: "google:gemini-2.0-flash"
 ```
 
-**Note:** o-series models (o1, o3, o4-mini) are auto-detected and use correct API params.
+**Note:** Reasoning models are auto-detected and use correct API params.
 
 ### Classifier
 
@@ -134,8 +134,7 @@ Use remote (anthropic/openai/google/kimi) if your machine can't run local models
 ### Supported Providers
 
 - `anthropic:claude-*` - Anthropic Claude models (tested)
-- `openai:gpt-*` - OpenAI GPT models (tested)
-- `openai:o1-*`, `openai:o3-*`, `openai:o4-*` - OpenAI reasoning models (tested)
+- `openai:gpt-*`, `openai:o1-*`, `openai:o3-*` - OpenAI models (tested)
 - `google:gemini-*` - Google Gemini models (tested)
 - `kimi:kimi-k2.5`, `kimi:moonshot-*` - Kimi/Moonshot models (tested)
 - `local:model-name` - Local Ollama models (tested)

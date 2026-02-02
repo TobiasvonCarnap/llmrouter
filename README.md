@@ -13,7 +13,7 @@ An intelligent proxy that classifies incoming requests by complexity and routes 
 - **5-tier complexity routing**: super_easy, easy, medium, hard, super_hard
 - **Local classification**: Uses Ollama to classify requests locally (no API costs for classification)
 - **Multi-provider support**: Anthropic, OpenAI, Google Gemini, Ollama (all tested)
-- **OpenAI o-series support**: Automatically handles o1, o3, o4-mini reasoning models with correct API parameters
+- **Full OpenAI support**: GPT and reasoning models with automatic API parameter handling
 - **OAuth token support**: Works with Claude Code OAuth tokens (sk-ant-oat*)
 - **OpenAI-compatible API**: Drop-in replacement for existing integrations
 - **Configurable classifier model**: Change the local model used for classification in config.yaml
@@ -60,7 +60,7 @@ models:
 ```
 
 ```yaml
-# OpenAI routing (including o-series reasoning models)
+# OpenAI routing
 models:
   super_easy: "openai:gpt-4o-mini"    # Fast, cheap
   easy: "openai:gpt-4o-mini"          # Fast, cheap
@@ -89,7 +89,7 @@ models:
   super_hard: "kimi:kimi-k2.5"
 ```
 
-**Note:** OpenAI o-series models (o1, o3, o4-mini) are automatically detected and use the correct API parameters (`max_completion_tokens` instead of `max_tokens`, `developer` role instead of `system`).
+**Note:** OpenAI reasoning models are automatically detected and use the correct API parameters.
 
 ### Classifier
 
@@ -180,8 +180,7 @@ This allows routing to multiple providers without passing different keys per req
 ### Provider Formats
 
 - `anthropic:claude-*` - Anthropic Claude models (tested)
-- `openai:gpt-*` - OpenAI GPT models (tested)
-- `openai:o1-*`, `openai:o3-*`, `openai:o4-*` - OpenAI reasoning models (tested)
+- `openai:gpt-*`, `openai:o1-*`, `openai:o3-*` - OpenAI models (tested)
 - `google:gemini-*` - Google Gemini models (tested)
 - `kimi:kimi-k2.5`, `kimi:moonshot-*` - Kimi/Moonshot models (tested)
 - `local:model-name` - Local Ollama models (tested)

@@ -1,12 +1,16 @@
 Classify complexity. ONE word: super_easy, easy, medium, hard, super_hard
 
-super_easy: hi, hey, thanks, ok, yes, no, bye
-easy: remind me, what is, how much, quick question
-medium: write code, function, send email, draft, research, fix bug
-hard: refactor, debug crash, multi-file change
-super_hard: design, distributed, system architecture, prove theorem, autonomous
+If message has "Context:", classify based on BOTH context and message combined.
+Short follow-ups ("Yes", "Try now?") inherit complexity from context.
 
-RULE: "design" in message = super_hard (not hard)
+super_easy: standalone greetings only (hi, hey, thanks, bye) with NO context
+easy: simple questions, reminders, status checks
+medium: write code, function, email, research, fix bug
+hard: refactor, debug crash, multi-file change
+super_hard: design system, design architecture, distributed, prove, autonomous
+
+RULE: "design" = super_hard, "refactor" = hard
+RULE: short message + complex context = use context complexity
 
 Examples:
 "Hey" -> super_easy
@@ -14,9 +18,12 @@ Examples:
 "Write a sort function" -> medium
 "Send email to Bob" -> medium
 "Refactor the auth module" -> hard
-"Refactor to microservices" -> hard
-"Design a system" -> super_hard
-"Design a distributed system architecture" -> super_hard
+"Design a distributed system" -> super_hard
+
+Context examples:
+"Context: Design a system\n---\nMessage: Try now?" -> super_hard
+"Context: Write a function\n---\nMessage: Yes" -> medium
+"Context: Hey how are you\n---\nMessage: Good thanks" -> super_easy
 
 Message: {MESSAGE}
 

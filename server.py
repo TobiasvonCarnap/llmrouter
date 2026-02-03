@@ -1124,18 +1124,31 @@ class RouterHandler(BaseHTTPRequestHandler):
             body = self.rfile.read(content_length)
             request = json.loads(body)
             
-            # Extract the last user message for classification
+            # Extract last user message + context for classification
             messages = request.get("messages", [])
             user_message = ""
+            context_message = ""
+            found_user = False
             for msg in reversed(messages):
-                if msg.get("role") == "user":
-                    user_message = extract_text_content(msg.get("content", ""))
+                content = extract_text_content(msg.get("content", ""))
+                if not found_user and msg.get("role") == "user":
+                    user_message = content
+                    found_user = True
+                elif found_user and content:
+                    # Get the message before the last user message as context
+                    context_message = content[:200]  # Truncate context to 200 chars
                     break
             
             if not user_message:
                 self.send_error_json("No user message found", 400)
                 return
-            
+
+            # Format message with context for classification
+            if context_message:
+                classify_input = f"Context: {context_message}\n---\nMessage: {user_message}"
+            else:
+                classify_input = user_message
+
             # Extract tools from request
             tools = request.get("tools")
 
@@ -1155,7 +1168,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             else:
                 classifier_key = None
             complexity = classify(
-                user_message,
+                classify_input,
                 model=classifier_config.get("model"),
                 provider=classifier_provider,
                 ollama_url=classifier_config.get("ollama_url"),
@@ -1188,7 +1201,10 @@ class RouterHandler(BaseHTTPRequestHandler):
                         complexity = "easy"
                         log(f"  Tools present: bumped super_easy -> easy (default)")
 
-            log(f"  Classifying ({len(user_message)} chars): '{user_message[:100]}...'")
+            if context_message:
+                log(f"  Classifying with context ({len(classify_input)} chars): '{user_message[:60]}...' [ctx: '{context_message[:40]}...']")
+            else:
+                log(f"  Classifying ({len(classify_input)} chars): '{user_message[:100]}...'")
             log(f"  -> {complexity} in {classify_time:.0f}ms")
 
             # Map complexity to provider:model (or use tool override)

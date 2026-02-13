@@ -74,12 +74,16 @@ def load_config(config_path="config.yaml"):
         # Extract provider URLs and API keys
         providers = CONFIG.get("providers", {})
         PROVIDER_URLS = {
-            "anthropic": providers.get("anthropic", {}).get("url", "https://api.anthropic.com/v1/messages"),
-            "openai": providers.get("openai", {}).get("url", "https://api.openai.com/v1/chat/completions"),
-            "google": providers.get("google", {}).get("url", "https://generativelanguage.googleapis.com/v1beta/models"),
-            "deepseek": providers.get("deepseek", {}).get("url", "https://api.deepseek.com/v1/chat/completions"),
-            "kimi": providers.get("kimi", {}).get("url", "https://api.moonshot.cn/v1/chat/completions"),
-            "ollama": providers.get("ollama", {}).get("url", "http://localhost:11434/api/chat"),
+            "anthropic": (providers.get("anthropic") or {}).get("url", "https://api.anthropic.com/v1/messages"),
+            "openai": (providers.get("openai") or {}).get("url", "https://api.openai.com/v1/chat/completions"),
+            "google": (providers.get("google") or {}).get("url", "https://generativelanguage.googleapis.com/v1beta/models"),
+            "deepseek": (providers.get("deepseek") or {}).get("url", "https://api.deepseek.com/v1/chat/completions"),
+            "kimi": (providers.get("kimi") or {}).get("url", "https://api.moonshot.cn/v1/chat/completions"),
+            "ollama": (providers.get("ollama") or {}).get("url", "http://localhost:11434/api/chat"),
+            "nvidia": (providers.get("nvidia") or {}).get("url", "https://integrate.api.nvidia.com/v1/chat/completions"),
+            "lmstudio": (providers.get("lmstudio") or {}).get("url", "http://localhost:1234/v1/chat/completions"),
+            "exo": (providers.get("exo") or {}).get("url", "http://localhost:52415/v1/chat/completions"),
+            "pollinations": (providers.get("pollinations") or {}).get("url", "https://gen.pollinations.ai/v1/chat/completions"),
         }
 
         # Extract API keys (if configured)
@@ -102,6 +106,52 @@ def parse_provider_model(provider_model_str):
         return parts[0], parts[1]
     # Default to anthropic if no provider specified
     return "anthropic", provider_model_str
+
+
+def route_with_failover(complexity, messages, max_tokens, system_content, api_key, tools):
+    """Route to provider with automatic failover on failure.
+
+    Supports both single model string and array of models (failover chain).
+    Returns (provider_name, response_dict) or raises exception if all fail.
+    """
+    provider_models = MODEL_MAP.get(complexity, MODEL_MAP.get("medium", "anthropic:claude-sonnet-4-20250514"))
+
+    # Normalize to list
+    if isinstance(provider_models, str):
+        provider_models = [provider_models]
+
+    last_error = None
+
+    for provider_model in provider_models:
+        try:
+            provider, target_model = parse_provider_model(provider_model)
+
+            provider_fn = PROVIDERS.get(provider)
+            if not provider_fn:
+                log(f"  [Failover] Unknown provider: {provider}, skipping...")
+                continue
+
+            # Get effective API key
+            effective_key = get_provider_key(provider, api_key)
+
+            log(f"  [Failover] Trying {provider}:{target_model}...")
+
+            response = provider_fn(
+                target_model, messages, max_tokens, system_content, effective_key, tools
+            )
+
+            # Success!
+            log(f"  [Failover] Success with {provider}:{target_model}")
+            return provider, target_model, response
+
+        except Exception as e:
+            error_msg = str(e)
+            log(f"  [Failover] Failed {provider_model}: {error_msg[:100]}")
+            last_error = e
+            continue  # Try next provider
+
+    # All providers failed
+    raise Exception(f"All providers failed for complexity '{complexity}'. Last error: {last_error}")
 
 
 def get_provider_key(provider, request_key=None):
@@ -837,6 +887,26 @@ def call_deepseek_model(model, messages, max_tokens, system=None, api_key=None, 
     return call_openai_compatible("deepseek", model, messages, max_tokens, system, api_key, tools)
 
 
+def call_nvidia_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
+    """Call NVIDIA API (OpenAI-compatible)"""
+    return call_openai_compatible("nvidia", model, messages, max_tokens, system, api_key, tools)
+
+
+def call_lmstudio_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
+    """Call LM Studio API (OpenAI-compatible)"""
+    return call_openai_compatible("lmstudio", model, messages, max_tokens, system, api_key, tools)
+
+
+def call_exo_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
+    """Call Exo API (OpenAI-compatible)"""
+    return call_openai_compatible("exo", model, messages, max_tokens, system, api_key, tools)
+
+
+def call_pollinations_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
+    """Call Pollinations API (OpenAI-compatible)"""
+    return call_openai_compatible("pollinations", model, messages, max_tokens, system, api_key, tools)
+
+
 def call_kimi_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
     """Call Kimi/Moonshot API with tool support.
 
@@ -1018,6 +1088,10 @@ PROVIDERS = {
     "google": call_google_model,
     "deepseek": call_deepseek_model,
     "kimi": call_kimi_model,
+    "nvidia": call_nvidia_model,
+    "lmstudio": call_lmstudio_model,
+    "exo": call_exo_model,
+    "pollinations": call_pollinations_model,
 }
 
 
@@ -1227,11 +1301,17 @@ class RouterHandler(BaseHTTPRequestHandler):
             # Map complexity to provider:model (or use tool override)
             if tool_model_override:
                 provider, target_model = parse_provider_model(tool_model_override)
+                use_failover = False  # Tool override uses single model
             else:
-                provider_model = MODEL_MAP.get(complexity, MODEL_MAP["medium"])
-                provider, target_model = parse_provider_model(provider_model)
+                provider_models = MODEL_MAP.get(complexity, MODEL_MAP.get("medium"))
+                use_failover = isinstance(provider_models, list) and len(provider_models) > 1
+                if not use_failover:
+                    # Single model - parse it
+                    provider_model = provider_models if isinstance(provider_models, str) else provider_models[0]
+                    provider, target_model = parse_provider_model(provider_model)
 
-            log(f"  '{user_message[:50]}...' -> {complexity} -> {provider}:{target_model} ({classify_time:.0f}ms)")
+            if not use_failover:
+                log(f"  '{user_message[:50]}...' -> {complexity} -> {provider}:{target_model} ({classify_time:.0f}ms)")
 
             # Pinch: Prune context if enabled
             if PINCH_MODE:
@@ -1317,21 +1397,30 @@ class RouterHandler(BaseHTTPRequestHandler):
                     system_content
                 )
 
-            # Route to appropriate provider
+            # Route to appropriate provider (with failover if enabled)
             try:
                 max_tokens = request.get("max_tokens", 8192)
-                provider_fn = PROVIDERS.get(provider)
-                if not provider_fn:
-                    self.send_error_json(f"Unknown provider: {provider}", 400)
-                    return
-                # Use provider-specific key from config, fall back to request header
-                effective_key = get_provider_key(provider, api_key)
-                eff_auth_type = "OAuth" if is_oauth_token(effective_key) else "API Key"
-                eff_source = "config" if PROVIDER_KEYS.get(provider) == effective_key else "request"
-                log(f"  Effective Auth: {eff_auth_type} from {eff_source} ({effective_key[:10]}...{effective_key[-4:]})")
-                provider_response = provider_fn(
-                    target_model, provider_messages, max_tokens, system_content, effective_key, tools
-                )
+
+                if use_failover and not tool_model_override:
+                    # Use failover routing with multiple providers
+                    provider, target_model, provider_response = route_with_failover(
+                        complexity, provider_messages, max_tokens, system_content, api_key, tools
+                    )
+                    effective_key = get_provider_key(provider, api_key)
+                else:
+                    # Single provider routing
+                    provider_fn = PROVIDERS.get(provider)
+                    if not provider_fn:
+                        self.send_error_json(f"Unknown provider: {provider}", 400)
+                        return
+                    # Use provider-specific key from config, fall back to request header
+                    effective_key = get_provider_key(provider, api_key)
+                    eff_auth_type = "OAuth" if is_oauth_token(effective_key) else "API Key"
+                    eff_source = "config" if PROVIDER_KEYS.get(provider) == effective_key else "request"
+                    log(f"  Effective Auth: {eff_auth_type} from {eff_source} ({effective_key[:10]}...{effective_key[-4:]})")
+                    provider_response = provider_fn(
+                        target_model, provider_messages, max_tokens, system_content, effective_key, tools
+                    )
             except Exception as e:
                 self.send_error_json(str(e), 500)
                 return

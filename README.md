@@ -160,6 +160,8 @@ tools:
 | Pollinations | `pollinations:` | `pollinations:glm` |
 | DeepSeek | `deepseek:` | `deepseek:deepseek-chat` |
 
+> 💚 **Special thanks to [Pollinations.ai](https://pollinations.ai/)** for providing free API access to their models!
+
 ---
 
 ## 🧪 Testing Classification

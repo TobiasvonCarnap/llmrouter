@@ -26,7 +26,7 @@ tools:
   # If neither set, defaults to bumping super_easy -> easy
 
 # Model routing by complexity level
-# Format: "provider:model" where provider is: local, anthropic, openai, google
+# Format: "provider:model" or ["provider:model1", "provider:model2"] for failover chains
 #
 # Providers:
 #   - local: Ollama models (free, runs locally)
@@ -38,12 +38,23 @@ tools:
 #   - gpt-4o, gpt-4o-mini: Fast, multimodal
 #   - o1, o3, o4-mini: Reasoning models (auto-detected, uses different API params)
 #
+# Failover chains: Configure multiple models per tier for automatic fallback.
+# If the first model fails, the router tries the next one automatically.
+#
 models:
+  # Simple single-model config (backward compatible)
   super_easy: "anthropic:claude-haiku-4-5-20251001" # Fast, cheap
   easy: "anthropic:claude-sonnet-4-20250514"        # Balanced
   medium: "anthropic:claude-sonnet-4-20250514"      # Balanced
   hard: "anthropic:claude-opus-4-20250514"          # Powerful
   super_hard: "anthropic:claude-opus-4-20250514"    # Most capable
+
+  # Example with failover chains (uncomment to use):
+  # super_easy: ["local:qwen2.5:3b", "anthropic:claude-haiku-4-5-20251001"]
+  # easy: ["local:qwen2.5:3b", "anthropic:claude-haiku-4-5-20251001"]
+  # medium: ["anthropic:claude-sonnet-4-20250514", "openai:gpt-4o"]
+  # hard: ["anthropic:claude-opus-4-20250514", "openai:o3"]
+  # super_hard: ["anthropic:claude-opus-4-20250514", "openai:o3"]
 
 # Alternative: OpenAI-only routing
 # models:

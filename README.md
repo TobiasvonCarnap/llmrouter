@@ -1,27 +1,37 @@
 <div align="center">
 
+<img src="https://img.shields.io/badge/🦞-OpenClaw_Style-FF4500?style=for-the-badge&labelColor=1a1a1a" alt="OpenClaw Style">
+
 # 🐟 LLM Router
 
-> **🍴 Experimental Fork** — Personal additions by [Tobias von Carnap](https://github.com/TobiasvonCarnap)  
+> **Experimental Fork** — Personal additions by [Tobias von Carnap](https://github.com/TobiasvonCarnap)  
 > 🤝 *Built on [alexrudloff/llmrouter](https://github.com/alexrudloff/llmrouter) — thanks Alex!*
 
-[![Version](https://img.shields.io/badge/version-v1.1.0-FF4500?style=flat-square)](https://gitea.mikrogeophagus.dedyn.io/mikrogeophagus-tobi/llmrouter/releases/tag/v1.1.0)
-[![Python](https://img.shields.io/badge/python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![OpenClaw](https://img.shields.io/badge/OpenClaw-Compatible-FF4500?style=flat-square)](https://github.com/openclaw/openclaw)
+<br>
+
+<img src="https://img.shields.io/badge/version-v1.1.0-FF4500?style=flat-square&logoColor=white">
+<img src="https://img.shields.io/badge/python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white">
+<img src="https://img.shields.io/badge/OpenClaw-Compatible-FF4500?style=flat-square">
 
 </div>
 
 ---
 
-## 🎯 What is this?
+<div style="background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #FF4500;">
+
+### 🎯 What is this?
 
 An intelligent proxy that **classifies** incoming requests by complexity and **routes** them to appropriate LLM models.
 
 **Save money** by using cheaper/faster models for simple tasks and reserving expensive models for complex ones.
 
+</div>
+
 ---
 
 ## 📊 Status
+
+<div align="center">
 
 | Provider | Status |
 |----------|--------|
@@ -31,22 +41,69 @@ An intelligent proxy that **classifies** incoming requests by complexity and **r
 | Kimi/Moonshot | ✅ Tested |
 | Ollama | ✅ Tested |
 
+</div>
+
 ---
 
-## 🚀 Latest Release: v1.1.0 — Failover Chains
+## 🚀 Latest Release: v1.1.0
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border: 1px solid #333;">
+
+### 🔀 Automatic Failover Chains
 
 📝 [Release Notes 🇬🇧 EN](RELEASE_NOTES_v1.1.0.en.md) | [🇩🇪 DE](RELEASE_NOTES_v1.1.0.md)
+
+</div>
 
 ---
 
 ## ✨ Features
 
-- **🆕 NEW: Automatic failover chains** — Configure multiple models per tier for automatic fallback (v1.1.0+)
-- **🎯 5-tier complexity routing** — super_easy → easy → medium → hard → super_hard
-- **🏠 Local classification** — Use Ollama to classify locally (zero API costs)
-- **🔌 Multi-provider support** — Anthropic, OpenAI, Gemini, Ollama, Exo, LM Studio, Pollinations
-- **🧠 OpenAI-compatible API** — Drop-in replacement for existing integrations
-- **🔐 OAuth token support** — Works with Claude Code tokens (sk-ant-oat*)
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #FF4500;">
+
+### 🆕 NEW: Failover Chains
+Configure multiple models per tier for automatic fallback (v1.1.0+)
+
+</div>
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #FF4500;">
+
+### 🎯 5-Tier Routing
+super_easy → easy → medium → hard → super_hard
+
+</div>
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #3776AB;">
+
+### 🏠 Local Classification
+Use Ollama to classify locally — **zero API costs**
+
+</div>
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #3776AB;">
+
+### 🔌 Multi-Provider
+Anthropic, OpenAI, Gemini, Ollama, Exo, LM Studio
+
+</div>
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #3776AB;">
+
+### 🧠 OpenAI-Compatible API
+Drop-in replacement for existing integrations
+
+</div>
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #3776AB;">
+
+### 🔐 OAuth Support
+Works with Claude Code tokens (sk-ant-oat*)
+
+</div>
+
+</div>
 
 ---
 
@@ -82,6 +139,8 @@ python server.py --openclaw
 
 ## ⚙️ Configuration
 
+<div style="background: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #FF4500;">
+
 ### 🔄 Failover Chains (v1.1.0+)
 
 Configure **multiple models per complexity level** for automatic failover.
@@ -100,11 +159,7 @@ models:
 3. 🔄 If it fails → automatically tries next
 4. ❌ Only returns error if **ALL** models fail
 
-**Backward compatible:** Single string syntax still works:
-```yaml
-models:
-  super_easy: "anthropic:claude-haiku-4-5-20251001"  # No failover
-```
+</div>
 
 ---
 
@@ -160,10 +215,7 @@ tools:
 | Pollinations | `pollinations:` | `pollinations:glm` |
 | DeepSeek | `deepseek:` | `deepseek:deepseek-chat` |
 
-> 💚 **Special thanks to:**
-> - [Pollinations.ai](https://pollinations.ai/) — for providing free API access
-> - [OpenClaw Builders Night](https://luma.com/8k58g33a?tk=CvqEtm) — ([Event Notes](https://vagabond-process-2a0.notion.site/OpenClaw-Builders-Night-30376b54d8ca805288dace54d09648b0))
-> - The entire team at [Antler in Continental Europe](https://www.antler.co/location/germany) — especially [Christian-Hauke Poensgen](https://chrispoensgen.com) & [Alan Poensgen](https://www.linkedin.com/in/alan-poensgen/)
+> 💚 **Special thanks to [Pollinations.ai](https://pollinations.ai/)** for providing free API access to their models!
 
 ---
 
@@ -211,17 +263,14 @@ launchctl load ~/Library/LaunchAgents/com.llmrouter.plist
 
 ---
 
+<div align="center">
+
 ## 🎯 Quick Links
 
-- 📖 [Full Documentation](README.md)
-- ⚙️ [Example Config](config.yaml.example)
-- 🐛 [Report Issues](../../issues)
+[📖 Documentation](README.md) • [⚙️ Example Config](config.yaml.example) • [🐛 Report Issues](../../issues)
 
 ---
 
-<div align="center">
-
-**Built with** 🦞 **OpenClaw**  
-**Thanks to** 🤝 **Alex Rudloff**
+**Built with** 🦞 **OpenClaw** | **Thanks to** 🤝 **Alex Rudloff**
 
 </div>

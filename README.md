@@ -165,8 +165,41 @@ models:
 
 ## 🔧 Model Routing Examples
 
+### 💰 Cost-Optimized (Free → Premium)
+
 ```yaml
-# Anthropic routing
+# Start with free Pollinations models, fallback to paid providers
+models:
+  super_easy:
+    - "pollinations:claude-fast"                   # 🆓 Free tier
+    - "pollinations:glm"                           # 🆓 Free alternative
+    - "anthropic:claude-haiku-4-5-20251001"        # ☁️ Premium fallback
+
+  easy:
+    - "pollinations:glm"                           # 🆓 Free tier
+    - "pollinations:deepseek"                      # 🆓 Free alternative
+    - "anthropic:claude-haiku-4-5-20251001"        # ☁️ Premium fallback
+
+  medium:
+    - "pollinations:deepseek"                      # 🆓 Free tier
+    - "pollinations:claude-fast"                   # 🆓 Free alternative
+    - "anthropic:claude-sonnet-4-20250514"         # 💎 Premium fallback
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"       # 🏠 Local fallback
+
+  hard:
+    - "pollinations:claude-fast"                   # 🆓 Try free first
+    - "anthropic:claude-sonnet-4-20250514"         # 💎 Premium
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"       # 🏠 Local
+
+  super_hard:
+    - "anthropic:claude-opus-4-20250514"           # 👑 Best model
+    - "pollinations:deepseek"                      # 🆓 Free fallback
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"       # 🏠 Local fallback
+```
+
+### ☁️ Cloud-Only (Anthropic)
+
+```yaml
 models:
   super_easy: "anthropic:claude-haiku-4-5-20251001"
   easy: "anthropic:claude-sonnet-4-20250514"
@@ -175,14 +208,19 @@ models:
   super_hard: "anthropic:claude-opus-4-20250514"
 ```
 
+### 🏠 Local-First (Privacy Focused)
+
 ```yaml
-# OpenAI routing
 models:
-  super_easy: "openai:gpt-4o-mini"
-  easy: "openai:gpt-4o-mini"
-  medium: "openai:gpt-4o"
-  hard: "openai:o3-mini"
-  super_hard: "openai:o3"
+  super_easy:
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"       # 🏠 Local first
+    - "lmstudio:zai-org/glm-4.7-flash"             # 🏠 Alternative local
+    - "pollinations:glm"                           # 🆓 Cloud fallback
+
+  medium:
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"
+    - "pollinations:deepseek"
+    - "anthropic:claude-sonnet-4-20250514"
 ```
 
 ---

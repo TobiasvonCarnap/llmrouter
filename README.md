@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/🦞-OpenClaw_Style-FF4500?style=for-the-badge&labelColor=1a1a1a" alt="OpenClaw Style">
+<img src="https://img.shields.io/badge/🦞-Powered%20by%20OpenClaw-FF4500?style=for-the-badge&labelColor=1a1a1a" alt="Powered by OpenClaw">
 
 # 🐟 LLM Router
 

@@ -160,13 +160,10 @@ tools:
 | Pollinations | `pollinations:` | `pollinations:glm` |
 | DeepSeek | `deepseek:` | `deepseek:deepseek-chat` |
 
-> 💚 **Special thanks to [Pollinations.ai](https://pollinations.ai/)** for providing free API access to their models!
->
-> 🙏 **Thanks to the [OpenClaw Builders Night](https://luma.com/8k58g33a?tk=CvqEtm)** — [Event Notes](https://vagabond-process-2a0.notion.site/OpenClaw-Builders-Night-30376b54d8ca805288dace54d09648b0)
->
-> 🚀 **Thanks to the entire Antler in Continental Europe team** ([https://www.antler.co/location/germany](https://www.antler.co/location/germany)):
-> - [Christian-Hauke Poensgen](https://chrispoensgen.com)
-> - [Alan Poensgen](https://www.linkedin.com/in/alan-poensgen/)
+> 💚 **Special thanks to:**
+> - [Pollinations.ai](https://pollinations.ai/) — for providing free API access
+> - [OpenClaw Builders Night](https://luma.com/8k58g33a?tk=CvqEtm) — ([Event Notes](https://vagabond-process-2a0.notion.site/OpenClaw-Builders-Night-30376b54d8ca805288dace54d09648b0))
+> - [Antler in Continental Europe](https://www.antler.co/location/germany) — [Christian-Hauke Poensgen](https://chrispoensgen.com) & [Alan Poensgen](https://www.linkedin.com/in/alan-poensgen/)
 
 ---
 

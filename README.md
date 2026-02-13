@@ -16,8 +16,8 @@ An intelligent proxy that classifies incoming requests by complexity and routes 
 
 ## Features
 
+- **🆕 NEW: Automatic failover chains**: Configure multiple models per tier for automatic fallback (v1.1.0+)
 - **5-tier complexity routing**: super_easy, easy, medium, hard, super_hard
-- **Automatic failover chains**: Configure multiple models per tier for maximum reliability (v1.1.0+)
 - **Local classification support**: It can use Ollama to classify requests locally (no API costs for classification)
 - **Multi-provider support**: Anthropic, OpenAI, Google Gemini, Ollama (all tested)
 - **Full OpenAI support**: GPT and reasoning models with automatic API parameter handling

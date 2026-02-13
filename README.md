@@ -1,5 +1,9 @@
 # LLM Router
 
+> **🍴 Experimental Fork** — This is a personal fork by [Tobias von Carnap](https://github.com/TobiasvonCarnap) with experimental additions. For the original, production-ready version, see [**alexrudloff/llmrouter**](https://github.com/alexrudloff/llmrouter) by Alex Rudloff.
+>
+> *Thanks to Alex for building the excellent foundation that made these experiments possible!*
+
 An intelligent proxy that classifies incoming requests by complexity and routes them to appropriate LLM models. Save money by using cheaper/faster models for simple tasks and reserving expensive models for complex ones.
 
 **Works with [OpenClaw](https://github.com/openclaw/openclaw)** to reduce token usage and API costs by routing simple requests to smaller models.

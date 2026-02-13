@@ -8,9 +8,12 @@ An intelligent proxy that classifies incoming requests by complexity and routes 
 
 **Tested with Anthropic, OpenAI, Google Gemini, Kimi/Moonshot, and Ollama.**
 
+📋 **Latest Release: [v1.1.0](RELEASE_NOTES_v1.1.0.md)** - Automatic Failover Chains
+
 ## Features
 
 - **5-tier complexity routing**: super_easy, easy, medium, hard, super_hard
+- **Automatic failover chains**: Configure multiple models per tier for maximum reliability (v1.1.0+)
 - **Local classification support**: It can use Ollama to classify requests locally (no API costs for classification)
 - **Multi-provider support**: Anthropic, OpenAI, Google Gemini, Ollama (all tested)
 - **Full OpenAI support**: GPT and reasoning models with automatic API parameter handling
@@ -90,6 +93,40 @@ models:
 ```
 
 **Note:** OpenAI reasoning models are automatically detected and use the correct API parameters.
+
+### Failover Chains (New in v1.1.0)
+
+Configure multiple models per complexity level for automatic failover. If the first model fails, the router tries the next one automatically.
+
+```yaml
+# Mix local and cloud providers for maximum reliability
+models:
+  super_easy:
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"      # Try local first (free)
+    - "lmstudio:zai-org/glm-4.7-flash"             # Fallback to LM Studio
+    - "anthropic:claude-haiku-4-5-20251001"        # Final fallback to cloud
+
+  easy:
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"
+    - "anthropic:claude-haiku-4-5-20251001"
+
+  medium:
+    - "pollinations:glm"                           # Free tier first
+    - "anthropic:claude-sonnet-4-20250514"         # Premium fallback
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"       # Local fallback
+```
+
+**How it works:**
+1. Router classifies request complexity
+2. Tries first model in the list
+3. If it fails (timeout, error, unavailable), automatically tries next
+4. Only returns error if ALL models fail
+
+**Note:** Single string syntax still works (backward compatible):
+```yaml
+models:
+  super_easy: "anthropic:claude-haiku-4-5-20251001"  # No failover
+```
 
 ### Tool Routing
 

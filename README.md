@@ -12,7 +12,8 @@ An intelligent proxy that classifies incoming requests by complexity and routes 
 
 **Tested with Anthropic, OpenAI, Google Gemini, Kimi/Moonshot, and Ollama.**
 
-📋 **Latest Release: [v1.1.0](https://gitea.mikrogeophagus.dedyn.io/mikrogeophagus-tobi/llmrouter/releases/tag/v1.1.0)** - Automatic Failover Chains | [Release Notes](RELEASE_NOTES_v1.1.0.md)
+📋 **Latest Release: [v1.1.0](https://gitea.mikrogeophagus.dedyn.io/mikrogeophagus-tobi/llmrouter/releases/tag/v1.1.0)** — Automatic Failover Chains  
+📝 [Release Notes 🇬🇧 EN](RELEASE_NOTES_v1.1.0.en.md) | [🇩🇪 DE](RELEASE_NOTES_v1.1.0.md)
 
 ## Features
 

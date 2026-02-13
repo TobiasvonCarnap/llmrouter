@@ -1,49 +1,59 @@
-# Release Notes v1.1.0 - Failover Chains
+# 🐟 OpenClaw LLM Router — Release Notes v1.1.0
 
-## 🚀 What's New?
+> 🤝 *Built on top of [alexrudloff/llmrouter](https://github.com/alexrudloff/llmrouter) — thanks Alex for the excellent foundation!*
 
-### Automatic Failover Chains
+---
 
-The LLM Router now supports **multiple models per complexity level**. If one model is unavailable, it automatically switches to the next in the list – no manual intervention required!
+## 🚀 What's New in v1.1.0
+
+### 🔀 Automatic Failover Chains
+
+The LLM Router now supports **multiple models per complexity level**. If one model is unavailable, it automatically switches to the next in the list — no manual intervention required!
+
+| Before | After |
+|--------|-------|
+| Single model per tier | Priority list with automatic fallback |
+| Manual provider switching | Seamless failover |
+| Downtime on provider issues | Continuous operation |
 
 **What this means for you:**
-- **Higher reliability**: If a provider is down, your request still goes through
-- **Flexible routing**: Combine local models (Exo, LM Studio) with cloud providers (Anthropic, Pollinations)
-- **No interruptions**: The switch happens automatically in the background
+- ✅ **Higher reliability** — If a provider is down, your request still goes through
+- 🔄 **Flexible routing** — Combine local models (Exo, LM Studio) with cloud providers (Anthropic, Pollinations)
+- ⚡ **No interruptions** — The switch happens automatically in the background
 
 ---
 
 ## ⚙️ How It Works
 
-Instead of just one model per level, you can now specify a **priority list**:
+Instead of just one model per level, specify a **priority list**:
 
 ```yaml
 models:
   super_easy:
-    - "exo:mlx-community/GLM-4.7-Flash-6bit"      # 1st attempt: Local Exo
-    - "lmstudio:zai-org/glm-4.7-flash"             # 2nd attempt: LM Studio
-    - "anthropic:claude-haiku-4-5-20251001"        # 3rd attempt: Anthropic (fallback)
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"      # 🏠 1st: Local (free)
+    - "lmstudio:zai-org/glm-4.7-flash"             # 🏠 2nd: Local fallback
+    - "anthropic:claude-haiku-4-5-20251001"        # ☁️ 3rd: Cloud fallback
 ```
 
 **Flow:**
-1. Router classifies the request (e.g., "super_easy")
-2. Attempts Model 1 (Exo)
-3. If Exo doesn't respond → automatic attempt with Model 2 (LM Studio)
-4. If LM Studio doesn't respond → attempt with Model 3 (Anthropic)
-5. Only when all models fail → error message
+1. 🔍 Router classifies request (e.g., "super_easy")
+2. 🎯 Attempts Model 1 (Exo)
+3. 🔄 If Exo fails → automatic attempt with Model 2 (LM Studio)
+4. 🔄 If LM Studio fails → attempt with Model 3 (Anthropic)
+5. ❌ Only when ALL models fail → error returned
 
 ---
 
 ## 📋 Example Configuration
 
 ```yaml
-# config.yaml - Complete example config with failover chains
+# config.yaml — Complete example with failover chains
 
 models:
   super_easy:
-    - "exo:mlx-community/GLM-4.7-Flash-6bit"      # Fast & local
-    - "lmstudio:zai-org/glm-4.7-flash"             # Local fallback
-    - "anthropic:claude-haiku-4-5-20251001"        # Cloud fallback
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"      # 🚀 Fast & local
+    - "lmstudio:zai-org/glm-4.7-flash"             # 🏠 Local fallback
+    - "anthropic:claude-haiku-4-5-20251001"        # ☁️ Cloud fallback
 
   easy:
     - "exo:mlx-community/GLM-4.7-Flash-6bit"
@@ -51,9 +61,9 @@ models:
     - "anthropic:claude-haiku-4-5-20251001"
 
   medium:
-    - "pollinations:glm"                           # Free tier
-    - "pollinations:deepseek"                      # Alternative
-    - "anthropic:claude-sonnet-4-20250514"         # Premium fallback
+    - "pollinations:glm"                           # 🆓 Free tier
+    - "pollinations:deepseek"                      # 🔄 Alternative
+    - "anthropic:claude-sonnet-4-20250514"         # 💎 Premium fallback
     - "lmstudio:zai-org/glm-4.7-flash"
     - "exo:mlx-community/GLM-4.7-Flash-6bit"
 
@@ -65,8 +75,8 @@ models:
     - "exo:mlx-community/GLM-4.7-Flash-6bit"
 
   super_hard:
-    - "anthropic:claude-opus-4-20250514"           # Best model
-    - "pollinations:glm"                           # Fallback
+    - "anthropic:claude-opus-4-20250514"           # 👑 Best model
+    - "pollinations:glm"                           # 🔄 Fallback
     - "lmstudio:zai-org/glm-4.7-flash"
     - "exo:mlx-community/GLM-4.7-Flash-6bit"
 ```
@@ -75,21 +85,21 @@ models:
 
 ## ⚠️ Breaking Changes
 
-**No breaking changes!** The old syntax with single strings continues to work:
+**None!** 🎉 The old syntax with single strings continues to work:
 
 ```yaml
-# Old syntax (still works)
+# ✨ Old syntax (still works)
 models:
   super_easy: "anthropic:claude-haiku-4-5-20251001"
 
-# New syntax (recommended for failover)
+# 🆕 New syntax (recommended for failover)
 models:
   super_easy:
     - "anthropic:claude-haiku-4-5-20251001"
     - "exo:mlx-community/GLM-4.7-Flash-6bit"
 ```
 
-**Note**: Tool calls with `model:` override (Option 2) still do **not** use failover – they use the explicitly specified model.
+**Note:** Tool calls with `model:` override still do **not** use failover — they use the explicitly specified model.
 
 ---
 
@@ -112,8 +122,8 @@ models:
 # After:
 models:
   super_easy:
-    - "exo:mlx-community/GLM-4.7-Flash-6bit"      # Local model first (free)
-    - "anthropic:claude-haiku-4-5-20251001"        # Cloud fallback
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"      # 🏠 Local first (free)
+    - "anthropic:claude-haiku-4-5-20251001"        # ☁️ Cloud fallback
 ```
 
 ### Step 3: Restart Server
@@ -130,21 +140,34 @@ python server.py --openclaw
 
 ## 🐛 Bugfixes in This Release
 
-- **Null-safe Provider Loading**: Fixed crash when provider configuration was empty
-- **Array Support**: Config parser now correctly supports lists/arrays
-- **Robust Error Handling**: All providers must fail before an error is returned
+| Issue | Fix |
+|-------|-----|
+| Crash on empty provider config | 🛡️ Null-safe provider loading |
+| Array config not supported | ✅ Full array/list support |
+| First provider fail = total fail | 🔄 Attempt all providers before error |
 
 ---
 
 ## 📊 Compatibility
 
-- **Python**: 3.10+
-- **OpenClaw**: Fully compatible
-- **Providers**: All previous ones (Anthropic, OpenAI, Google, Kimi, Ollama, Exo, LM Studio, Pollinations)
+| Component | Version |
+|-----------|---------|
+| 🐍 Python | 3.10+ |
+| 🦞 OpenClaw | Fully compatible |
+| 🔌 Providers | All previous (Anthropic, OpenAI, Google, Kimi, Ollama, Exo, LM Studio, Pollinations) |
+
+---
+
+## 🎯 Quick Links
+
+- 📖 [Full Documentation](README.md)
+- ⚙️ [Example Config](config.yaml.example)
+- 🐛 [Report Issues](../../issues)
 
 ---
 
 **Enjoy the more reliable routing!** 🎉
 
-*Release Date: 2026-02-13*
-*Tag: v1.1.0*
+*Release Date: 2026-02-13*  
+*Tag: v1.1.0*  
+*Built with 🐟 OpenClaw*

@@ -1,384 +1,274 @@
-# LLM Router
+<div align="center">
 
-> **🍴 Experimental Fork** — This is a personal fork by [Tobias von Carnap](https://github.com/TobiasvonCarnap) with experimental additions. For the original, production-ready version, see [**alexrudloff/llmrouter**](https://github.com/alexrudloff/llmrouter) by Alex Rudloff.
->
-> *Thanks to Alex for building the excellent foundation that made these experiments possible!*
+<img src="https://img.shields.io/badge/🦞-OpenClaw_Style-FF4500?style=for-the-badge&labelColor=1a1a1a" alt="OpenClaw Style">
 
-An intelligent proxy that classifies incoming requests by complexity and routes them to appropriate LLM models. Save money by using cheaper/faster models for simple tasks and reserving expensive models for complex ones.
+# 🐟 LLM Router
 
-**Works with [OpenClaw](https://github.com/openclaw/openclaw)** to reduce token usage and API costs by routing simple requests to smaller models.
+> **Experimental Fork** — Personal additions by [Tobias von Carnap](https://github.com/TobiasvonCarnap)  
+> 🤝 *Built on [alexrudloff/llmrouter](https://github.com/alexrudloff/llmrouter) — thanks Alex!*
 
-## Status
+<br>
 
-**Tested with Anthropic, OpenAI, Google Gemini, Kimi/Moonshot, and Ollama.**
+<img src="https://img.shields.io/badge/version-v1.1.0-FF4500?style=flat-square&logoColor=white">
+<img src="https://img.shields.io/badge/python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white">
+<img src="https://img.shields.io/badge/OpenClaw-Compatible-FF4500?style=flat-square">
 
-📋 **Latest Release: [v1.1.0](https://gitea.mikrogeophagus.dedyn.io/mikrogeophagus-tobi/llmrouter/releases/tag/v1.1.0)** — Automatic Failover Chains  
+</div>
+
+---
+
+<div style="background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #FF4500;">
+
+### 🎯 What is this?
+
+An intelligent proxy that **classifies** incoming requests by complexity and **routes** them to appropriate LLM models.
+
+**Save money** by using cheaper/faster models for simple tasks and reserving expensive models for complex ones.
+
+</div>
+
+---
+
+## 📊 Status
+
+<div align="center">
+
+| Provider | Status |
+|----------|--------|
+| Anthropic | ✅ Tested |
+| OpenAI | ✅ Tested |
+| Google Gemini | ✅ Tested |
+| Kimi/Moonshot | ✅ Tested |
+| Ollama | ✅ Tested |
+
+</div>
+
+---
+
+## 🚀 Latest Release: v1.1.0
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border: 1px solid #333;">
+
+### 🔀 Automatic Failover Chains
+
 📝 [Release Notes 🇬🇧 EN](RELEASE_NOTES_v1.1.0.en.md) | [🇩🇪 DE](RELEASE_NOTES_v1.1.0.md)
 
-## Features
+</div>
 
-- **🆕 NEW: Automatic failover chains**: Configure multiple models per tier for automatic fallback (v1.1.0+)
-- **5-tier complexity routing**: super_easy, easy, medium, hard, super_hard
-- **Local classification support**: It can use Ollama to classify requests locally (no API costs for classification)
-- **Multi-provider support**: Anthropic, OpenAI, Google Gemini, Ollama (all tested)
-- **Full OpenAI support**: GPT and reasoning models with automatic API parameter handling
-- **OAuth token support**: Works with Claude Code OAuth tokens (sk-ant-oat*)
-- **OpenAI-compatible API**: Drop-in replacement for existing integrations
-- **Configurable classifier model**: Change the local model used for classification in config.yaml
+---
 
-## Requirements
+## ✨ Features
+
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #FF4500;">
+
+### 🆕 NEW: Failover Chains
+Configure multiple models per tier for automatic fallback (v1.1.0+)
+
+</div>
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #FF4500;">
+
+### 🎯 5-Tier Routing
+super_easy → easy → medium → hard → super_hard
+
+</div>
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #3776AB;">
+
+### 🏠 Local Classification
+Use Ollama to classify locally — **zero API costs**
+
+</div>
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #3776AB;">
+
+### 🔌 Multi-Provider
+Anthropic, OpenAI, Gemini, Ollama, Exo, LM Studio
+
+</div>
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #3776AB;">
+
+### 🧠 OpenAI-Compatible API
+Drop-in replacement for existing integrations
+
+</div>
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #3776AB;">
+
+### 🔐 OAuth Support
+Works with Claude Code tokens (sk-ant-oat*)
+
+</div>
+
+</div>
+
+---
+
+## 📋 Requirements
 
 - Python 3.10+
-- [Ollama](https://ollama.ai) running locally (optional if using Anthropic for classification)
-- Anthropic API key (or Claude Code OAuth token)
+- [Ollama](https://ollama.ai) (optional — for local classification)
+- Anthropic API key or Claude Code OAuth token
 
-## Installation
+---
+
+## ⚡ Quick Start
 
 ```bash
 # Clone the repo
-git clone https://github.com/alexrudloff/llmrouter.git
+git clone https://github.com/TobiasvonCarnap/llmrouter.git
 cd llmrouter
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Pull the classifier model (default: qwen2.5:3b, configurable in config.yaml)
+# Pull classifier model
 ollama pull qwen2.5:3b
 
 # Copy and customize config
 cp config.yaml.example config.yaml
+
+# Start the server
+python server.py --openclaw
 ```
 
-## Configuration
+---
 
-Edit `config.yaml` to customize your model routing.
+## ⚙️ Configuration
+
+<div style="background: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #FF4500;">
 
 ### 🔄 Failover Chains (v1.1.0+)
 
-Configure **multiple models per complexity level** for automatic failover. If the first model fails, the router tries the next one automatically.
+Configure **multiple models per complexity level** for automatic failover.
 
 ```yaml
-# Mix local and cloud providers for maximum reliability
 models:
   super_easy:
-    - "exo:mlx-community/GLM-4.7-Flash-6bit"      # Try local first (free)
-    - "lmstudio:zai-org/glm-4.7-flash"             # Fallback to LM Studio
-    - "anthropic:claude-haiku-4-5-20251001"        # Final fallback to cloud
-
-  easy:
-    - "exo:mlx-community/GLM-4.7-Flash-6bit"
-    - "anthropic:claude-haiku-4-5-20251001"
-
-  medium:
-    - "pollinations:glm"                           # Free tier first
-    - "anthropic:claude-sonnet-4-20250514"         # Premium fallback
-    - "exo:mlx-community/GLM-4.7-Flash-6bit"       # Local fallback
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"      # 🏠 Try local first
+    - "lmstudio:zai-org/glm-4.7-flash"             # 🔄 Fallback
+    - "anthropic:claude-haiku-4-5-20251001"        # ☁️ Final fallback
 ```
 
 **How it works:**
-1. Router classifies request complexity
-2. Tries first model in the list
-3. If it fails (timeout, error, unavailable), automatically tries next
-4. Only returns error if ALL models fail
+1. 🔍 Router classifies request
+2. 🎯 Tries first model
+3. 🔄 If it fails → automatically tries next
+4. ❌ Only returns error if **ALL** models fail
 
-**Backward compatible:** Single string syntax still works:
-```yaml
-models:
-  super_easy: "anthropic:claude-haiku-4-5-20251001"  # No failover
-```
+</div>
 
-### Model Routing
+---
 
-Configure which model handles each complexity level (single model or failover chain):
+## 🔧 Model Routing Examples
 
 ```yaml
 # Anthropic routing
 models:
-  super_easy: "anthropic:claude-haiku-4-5-20251001"  # Fast, cheap
-  easy: "anthropic:claude-sonnet-4-20250514"         # Balanced
-  medium: "anthropic:claude-sonnet-4-20250514"       # Balanced
-  hard: "anthropic:claude-opus-4-20250514"           # Powerful
-  super_hard: "anthropic:claude-opus-4-20250514"     # Most capable
+  super_easy: "anthropic:claude-haiku-4-5-20251001"
+  easy: "anthropic:claude-sonnet-4-20250514"
+  medium: "anthropic:claude-sonnet-4-20250514"
+  hard: "anthropic:claude-opus-4-20250514"
+  super_hard: "anthropic:claude-opus-4-20250514"
 ```
 
 ```yaml
 # OpenAI routing
 models:
-  super_easy: "openai:gpt-4o-mini"    # Fast, cheap
-  easy: "openai:gpt-4o-mini"          # Fast, cheap
-  medium: "openai:gpt-4o"             # Balanced
-  hard: "openai:o3-mini"              # Reasoning model
-  super_hard: "openai:o3"             # Most capable reasoning
+  super_easy: "openai:gpt-4o-mini"
+  easy: "openai:gpt-4o-mini"
+  medium: "openai:gpt-4o"
+  hard: "openai:o3-mini"
+  super_hard: "openai:o3"
 ```
 
-```yaml
-# Google Gemini routing
-models:
-  super_easy: "google:gemini-2.0-flash"
-  easy: "google:gemini-2.0-flash"
-  medium: "google:gemini-2.0-flash"
-  hard: "google:gemini-2.0-flash"
-  super_hard: "google:gemini-2.0-flash"
-```
+---
+
+## 🐛 Tool Routing
 
 ```yaml
-# Kimi/Moonshot routing
-models:
-  super_easy: "kimi:moonshot-v1-8k"
-  easy: "kimi:moonshot-v1-32k"
-  medium: "kimi:kimi-k2.5"
-  hard: "kimi:kimi-k2.5"
-  super_hard: "kimi:kimi-k2.5"
-```
-
-**Note:** OpenAI reasoning models are automatically detected and use the correct API parameters.
-
-### Tool Routing
-
-When requests include tools (function calling), you may want to use more capable models to reduce prompt injection risks. Configure this in `config.yaml`:
-
-```yaml
-# Option 1: Set minimum complexity floor when tools present
+# Option 1: Minimum complexity floor
 tools:
-  min_complexity: "medium"  # Bumps super_easy/easy -> medium
-```
+  min_complexity: "medium"  # Bumps super_easy/easy → medium
 
-```yaml
 # Option 2: Force specific model for ALL tool calls
 tools:
-  model: "anthropic:claude-opus-4-20250514"  # Always use Opus for tools
+  model: "anthropic:claude-opus-4-20250514"
 ```
 
-If neither is set, defaults to bumping `super_easy` → `easy`.
+---
 
-### Classifier
+## 🌐 Supported Providers
 
-The classifier determines request complexity before routing. Three options:
+| Provider | Prefix | Example |
+|----------|--------|---------|
+| Anthropic | `anthropic:` | `anthropic:claude-sonnet-4-20250514` |
+| OpenAI | `openai:` | `openai:gpt-4o` |
+| Google Gemini | `google:` | `google:gemini-2.0-flash` |
+| Kimi/Moonshot | `kimi:` | `kimi:kimi-k2.5` |
+| Ollama (local) | `local:` | `local:qwen2.5:3b` |
+| Exo (local) | `exo:` | `exo:mlx-community/GLM-4.7-Flash` |
+| LM Studio | `lmstudio:` | `lmstudio:zai-org/glm-4.7-flash` |
+| Pollinations | `pollinations:` | `pollinations:glm` |
+| DeepSeek | `deepseek:` | `deepseek:deepseek-chat` |
 
-#### Local Classification (default)
+---
 
-Uses Ollama running on your machine. Free, but requires local hardware.
-
-```yaml
-classifier:
-  provider: "local"
-  model: "qwen2.5:3b"  # Any Ollama model
-  ollama_url: "http://localhost:11434/api/generate"
-```
+## 🧪 Testing Classification
 
 ```bash
-# Setup
-ollama pull qwen2.5:3b
+python classifier.py "Write a Python sort function"
+# Output: medium
+
+python classifier.py --test
+# Runs test suite
 ```
 
-#### Anthropic Classification
+---
 
-Uses Anthropic Haiku for classification. Fast, low cost per classification.
+## 🚀 Running as macOS Service
 
-```yaml
-classifier:
-  provider: "anthropic"
-  model: "claude-haiku-4-5-20251001"
-```
-
-#### OpenAI Classification
-
-Uses OpenAI for classification. Useful if you have OpenAI credits or prefer their models.
-
-```yaml
-classifier:
-  provider: "openai"
-  model: "gpt-4o-mini"
-```
-
-#### Google Classification
-
-Uses Google Gemini for classification.
-
-```yaml
-classifier:
-  provider: "google"
-  model: "gemini-2.0-flash"
-```
-
-#### Kimi Classification
-
-Uses Kimi/Moonshot for classification.
-
-```yaml
-classifier:
-  provider: "kimi"
-  model: "moonshot-v1-8k"
-```
-
-Choose remote (anthropic/openai/google/kimi) if:
-- Your machine can't run local models
-- You want simpler setup (no Ollama required)
-
-### Provider API Keys
-
-Configure API keys per provider in `config.yaml`. Keys in config take priority over the request Authorization header.
-
-```yaml
-providers:
-  anthropic:
-    url: "https://api.anthropic.com/v1/messages"
-    api_key: "sk-ant-..."  # Your Anthropic key or OAuth token
-  openai:
-    url: "https://api.openai.com/v1/chat/completions"
-    api_key: "sk-proj-..."
-  deepseek:
-    url: "https://api.deepseek.com/v1/chat/completions"
-    api_key: "sk-..."
-  kimi:
-    url: "https://api.moonshot.cn/v1/chat/completions"
-    api_key: "sk-..."
-```
-
-This allows routing to multiple providers without passing different keys per request.
-
-### Provider Formats
-
-- `anthropic:claude-*` - Anthropic Claude models (tested)
-- `openai:gpt-*`, `openai:o1-*`, `openai:o3-*` - OpenAI models (tested)
-- `google:gemini-*` - Google Gemini models (tested)
-- `kimi:kimi-k2.5`, `kimi:moonshot-*` - Kimi/Moonshot models (tested)
-- `local:model-name` - Local Ollama models (tested)
-- `deepseek:deepseek-*` - DeepSeek models (untested)
-
-## Usage
-
-### Start the server
-
-```bash
-python server.py
-```
-
-Options:
-- `--port PORT` - Port to listen on (default: 4001)
-- `--host HOST` - Host to bind to (default: 127.0.0.1)
-- `--config PATH` - Path to config file (default: config.yaml)
-- `--log` - Enable verbose request/response logging
-- `--openclaw` - Enable OpenClaw compatibility (rewrites model name in system prompt)
-
-### Make requests
-
-The router exposes an OpenAI-compatible API at `/v1/chat/completions`:
-
-```bash
-curl http://localhost:4001/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "llm-router",
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
-```
-
-The router will:
-1. Classify the message complexity using the local qwen model
-2. Route to the appropriate provider/model based on `config.yaml`
-3. Return the response in OpenAI-compatible format
-
-### API Key Handling
-
-Your API key is passed through to the target provider. The router supports:
-- Standard Anthropic API keys (`sk-ant-api*`)
-- Claude Code OAuth tokens (`sk-ant-oat*`) - requires Claude Code identity headers
-
-## Running as a Service (macOS)
-
-Create a LaunchAgent plist at `~/Library/LaunchAgents/com.llmrouter.plist`:
+Create `~/Library/LaunchAgents/com.llmrouter.plist`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>com.llmrouter</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/python3</string>
+        <string>/path/to/llmrouter/venv/bin/python</string>
         <string>/path/to/llmrouter/server.py</string>
+        <string>--openclaw</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
-    <key>WorkingDirectory</key>
-    <string>/path/to/llmrouter</string>
 </dict>
 </plist>
 ```
 
-Then load it:
 ```bash
 launchctl load ~/Library/LaunchAgents/com.llmrouter.plist
 ```
 
-## OpenClaw Integration
+---
 
-To use llmrouter with [OpenClaw](https://github.com/openclaw/openclaw), add a provider to your `~/.openclaw/openclaw.json`:
+<div align="center">
 
-```json
-{
-  "models": {
-    "providers": {
-      "localrouter": {
-        "baseUrl": "http://localhost:4001/v1",
-        "apiKey": "via-router",
-        "api": "openai-completions",
-        "models": [
-          {
-            "id": "llm-router",
-            "name": "LLM Router (Auto-routes by complexity)",
-            "reasoning": false,
-            "input": ["text", "image"],
-            "cost": {
-              "input": 0,
-              "output": 0,
-              "cacheRead": 0,
-              "cacheWrite": 0
-            },
-            "contextWindow": 200000,
-            "maxTokens": 8192
-          }
-        ]
-      }
-    }
-  }
-}
-```
+## 🎯 Quick Links
 
-Then set it as your default model in `agents.defaults.model.primary`:
+[📖 Documentation](README.md) • [⚙️ Example Config](config.yaml.example) • [🐛 Report Issues](../../issues)
 
-```json
-{
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "localrouter/llm-router"
-      }
-    }
-  }
-}
-```
+---
 
-Start the server with OpenClaw compatibility mode:
+**Built with** 🦞 **OpenClaw** | **Thanks to** 🤝 **Alex Rudloff**
 
-```bash
-python server.py --openclaw
-```
-
-The `--openclaw` flag enables model name rewriting in system prompts so OpenClaw displays the actual model being used (rewrites `model=localrouter/...` to the actual provider/model).
-
-Note: Tool name remapping for Claude Code OAuth tokens happens automatically when an OAuth token is detected.
-
-## Classification Rules
-
-Edit `ROUTES.md` to customize how messages are classified. The classifier reads the table in this file to determine complexity levels.
-
-## License
-
-MIT
+</div>

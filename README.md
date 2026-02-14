@@ -314,4 +314,8 @@ launchctl load ~/Library/LaunchAgents/com.llmrouter.plist
 
 **Built with** 🦞 **OpenClaw** | **Thanks to** 🤝 **Alex Rudloff**
 
+
+## License
+
+MIT
 </div>

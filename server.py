@@ -42,8 +42,21 @@ import requests
 
 from classifier import classify
 
+# Import FreeRide module (optional - graceful fallback if not available)
+try:
+    from freeride import (
+        update_config_with_freeride,
+        get_freeride_status,
+        list_free_models,
+        get_api_key as freeride_get_api_key
+    )
+    FREERIDE_AVAILABLE = True
+except ImportError:
+    FREERIDE_AVAILABLE = False
+
 # Global configuration (loaded from config.yaml)
 CONFIG = {}
+CONFIG_PATH = "config.yaml"  # Path to current config file
 MODEL_MAP = {}
 PROVIDER_URLS = {}
 PROVIDER_KEYS = {}  # API keys per provider from config
@@ -54,8 +67,9 @@ PINCH_STATS = {"requests": 0, "pruned": 0, "tokens_saved": 0}  # Running stats
 
 def load_config(config_path="config.yaml"):
     """Load configuration from YAML file"""
-    global CONFIG, MODEL_MAP, PROVIDER_URLS, PROVIDER_KEYS
+    global CONFIG, CONFIG_PATH, MODEL_MAP, PROVIDER_URLS, PROVIDER_KEYS
 
+    CONFIG_PATH = config_path
     config_file = Path(config_path)
     if not config_file.exists():
         print(f"Error: Config file not found: {config_path}", file=sys.stderr)
@@ -84,6 +98,7 @@ def load_config(config_path="config.yaml"):
             "lmstudio": (providers.get("lmstudio") or {}).get("url", "http://localhost:1234/v1/chat/completions"),
             "exo": (providers.get("exo") or {}).get("url", "http://localhost:52415/v1/chat/completions"),
             "pollinations": (providers.get("pollinations") or {}).get("url", "https://gen.pollinations.ai/v1/chat/completions"),
+            "openrouter": (providers.get("openrouter") or {}).get("url", "https://openrouter.ai/api/v1/chat/completions"),
         }
 
         # Extract API keys (if configured)
@@ -844,7 +859,9 @@ def call_google_model(model, messages, max_tokens, system=None, api_key=None, to
 
 def call_openai_compatible(provider_name, model, messages, max_tokens, system=None, api_key=None, tools=None):
     """Generic OpenAI-compatible API call (for DeepSeek, Kimi, etc.)"""
-    if not api_key:
+    # Lokale Provider brauchen keinen API-Key
+    local_providers = ("exo", "lmstudio")
+    if not api_key and provider_name not in local_providers:
         raise Exception(f"No API key for {provider_name}")
 
     openai_messages = []
@@ -852,12 +869,14 @@ def call_openai_compatible(provider_name, model, messages, max_tokens, system=No
         openai_messages.append({"role": "system", "content": system})
     openai_messages.extend(messages)
 
+    # Headers: Lokale Provider ohne API-Key brauchen keinen Authorization Header
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
     response = requests.post(
         PROVIDER_URLS[provider_name],
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
+        headers=headers,
         json={
             "model": model,
             "messages": openai_messages,
@@ -905,6 +924,17 @@ def call_exo_model(model, messages, max_tokens, system=None, api_key=None, tools
 def call_pollinations_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
     """Call Pollinations API (OpenAI-compatible)"""
     return call_openai_compatible("pollinations", model, messages, max_tokens, system, api_key, tools)
+
+
+def call_openrouter_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
+    """Call OpenRouter API (OpenAI-compatible)
+
+    OpenRouter provides free tier access to various models including:
+    - qwen/qwen3-coder:free
+    - deepseek/deepseek-r1-0528:free
+    - openrouter/free (auto-selector)
+    """
+    return call_openai_compatible("openrouter", model, messages, max_tokens, system, api_key, tools)
 
 
 def call_kimi_model(model, messages, max_tokens, system=None, api_key=None, tools=None):
@@ -1092,6 +1122,7 @@ PROVIDERS = {
     "lmstudio": call_lmstudio_model,
     "exo": call_exo_model,
     "pollinations": call_pollinations_model,
+    "openrouter": call_openrouter_model,
 }
 
 
@@ -1192,6 +1223,36 @@ class RouterHandler(BaseHTTPRequestHandler):
         
         if path == "/v1/chat/completions":
             self.handle_chat_completions()
+        elif path == "/v1/admin/freeride/update":
+            # FreeRide update endpoint
+            if not FREERIDE_AVAILABLE:
+                self.send_error_json("FreeRide module not available", 503)
+                return
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+                request = json.loads(body) if body else {}
+                
+                force_refresh = request.get("force", False)
+                result = update_config_with_freeride(
+                    CONFIG_PATH,
+                    force_refresh=force_refresh,
+                    preserve_existing=True
+                )
+                
+                if result["success"]:
+                    # Reload config to apply changes
+                    load_config(CONFIG_PATH)
+                    self.send_json({
+                        "success": True,
+                        "message": result["message"],
+                        "stats": result.get("stats", {}),
+                        "top_models": result.get("top_models", [])
+                    })
+                else:
+                    self.send_error_json(result["error"], 400)
+            except Exception as e:
+                self.send_error_json(str(e), 500)
         else:
             self.send_error_json(f"Unknown endpoint: {path}", 404)
     
@@ -1388,15 +1449,6 @@ class RouterHandler(BaseHTTPRequestHandler):
                 if anthropic_content:
                     provider_messages.append({"role": role, "content": anthropic_content})
 
-            # In openclaw mode, rewrite model= in system prompt Runtime line
-            if OPENCLAW_MODE and system_content:
-                actual_model = f"{provider}/{target_model}"
-                system_content = re.sub(
-                    r'\bmodel=localrouter/[^\s|]+',
-                    f'model={actual_model}',
-                    system_content
-                )
-
             # Route to appropriate provider (with failover if enabled)
             try:
                 max_tokens = request.get("max_tokens", 8192)
@@ -1424,6 +1476,16 @@ class RouterHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_error_json(str(e), 500)
                 return
+
+            # In openclaw mode, rewrite model= in system prompt Runtime line
+            # (Moved here after provider/target_model are set by routing)
+            if OPENCLAW_MODE and system_content:
+                actual_model = f"{provider}/{target_model}"
+                system_content = re.sub(
+                    r'\bmodel=localrouter/[^\s|]+',
+                    f'model={actual_model}',
+                    system_content
+                )
 
             # Extract response content
             anthropic_response = provider_response
@@ -1480,6 +1542,7 @@ class RouterHandler(BaseHTTPRequestHandler):
                 "classifier_provider": classifier_config.get("provider", "local"),
                 "classifier_model": classifier_config.get("model", "qwen2.5:3b"),
                 "models": list(MODEL_MAP.keys()),
+                "freeride_available": FREERIDE_AVAILABLE,
             }
             if PINCH_MODE:
                 health["pinch"] = {
@@ -1495,6 +1558,30 @@ class RouterHandler(BaseHTTPRequestHandler):
                     {"id": "local-router", "object": "model"},
                 ]
             })
+        elif path == "/v1/admin/freeride/status":
+            # FreeRide status endpoint
+            if not FREERIDE_AVAILABLE:
+                self.send_error_json("FreeRide module not available", 503)
+                return
+            try:
+                status = get_freeride_status(CONFIG_PATH)
+                self.send_json(status)
+            except Exception as e:
+                self.send_error_json(str(e), 500)
+        elif path == "/v1/admin/freeride/models":
+            # List free models endpoint
+            if not FREERIDE_AVAILABLE:
+                self.send_error_json("FreeRide module not available", 503)
+                return
+            try:
+                limit = int(urlparse(self.path).query.split("limit=")[-1].split("&")[0]) if "limit=" in urlparse(self.path).query else 20
+                models = list_free_models(CONFIG_PATH, limit=limit)
+                self.send_json({
+                    "data": models,
+                    "count": len(models)
+                })
+            except Exception as e:
+                self.send_error_json(str(e), 500)
         else:
             self.send_error_json(f"Unknown endpoint: {path}", 404)
 
@@ -1508,6 +1595,7 @@ def main():
 Examples:
   %(prog)s --port 4001
   %(prog)s --config my-config.yaml --host 0.0.0.0 --port 8080
+  %(prog)s --freeride --config config.yaml    # Update config with OpenRouter free models
 
 API Keys:
   Passed through from caller's Authorization header (Bearer token).
@@ -1544,8 +1632,43 @@ API Keys:
         action="store_true",
         help="Enable context pruning to reduce token usage"
     )
+    parser.add_argument(
+        "--freeride",
+        action="store_true",
+        help="Update config with OpenRouter free models and exit"
+    )
+    parser.add_argument(
+        "--freeride-force",
+        action="store_true",
+        help="Force refresh from API (ignore cache) when using --freeride"
+    )
 
     args = parser.parse_args()
+
+    # Handle FreeRide mode (update config and exit)
+    if args.freeride:
+        if not FREERIDE_AVAILABLE:
+            print("Error: FreeRide module not available. Make sure freeride.py is in the same directory.")
+            sys.exit(1)
+        
+        print("FreeRide: Updating config with OpenRouter free models...")
+        result = update_config_with_freeride(
+            args.config,
+            force_refresh=args.freeride_force,
+            preserve_existing=True
+        )
+        
+        if result["success"]:
+            print(f"\n✓ {result['message']}")
+            print(f"  Stats: {result.get('stats', {})}")
+            print(f"\nTop models added:")
+            for i, model in enumerate(result.get('top_models', [])[:5], 1):
+                print(f"  {i}. {model}")
+            print("\nConfig updated. Start the server normally with: python server.py")
+            sys.exit(0)
+        else:
+            print(f"\n✗ Error: {result['error']}")
+            sys.exit(1)
 
     # Set global flags
     global OPENCLAW_MODE, VERBOSE_LOG, PINCH_MODE
@@ -1572,8 +1695,25 @@ API Keys:
     print(f"\n🎯 Model Routing (5-tier):")
     for tier in ["super_easy", "easy", "medium", "hard", "super_hard"]:
         provider_model = MODEL_MAP.get(tier, "not configured")
-        print(f"   {tier:12} -> {provider_model}")
+        # Show count if it's a list
+        if isinstance(provider_model, list):
+            print(f"   {tier:12} -> {len(provider_model)} models ({provider_model[0]}{'...' if len(provider_model) > 1 else ''})")
+        else:
+            print(f"   {tier:12} -> {provider_model}")
     print(f"\n🔑 Auth: supports both OAuth tokens (sk-ant-oat*) and API keys (sk-ant-api*)")
+    
+    # FreeRide status
+    if FREERIDE_AVAILABLE:
+        freeride_config = CONFIG.get('freeride', {})
+        if freeride_config.get('enabled'):
+            last_update = freeride_config.get('last_update', 'unknown')
+            total_models = freeride_config.get('total_free_models', 0)
+            print(f"\n🆓 FreeRide: ENABLED ({total_models} free models, last update: {last_update[:10] if isinstance(last_update, str) else 'unknown'})")
+            print(f"   API: GET /v1/admin/freeride/status")
+            print(f"   API: POST /v1/admin/freeride/update")
+        else:
+            print(f"\n🆓 FreeRide: available (run with --freeride to enable)")
+    
     if PINCH_MODE:
         tp_config = CONFIG.get("pinch", {})
         print(f"\n✂️  Pinch: ENABLED (max_tokens={tp_config.get('max_tokens', 50000)})")

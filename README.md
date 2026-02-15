@@ -9,7 +9,7 @@
 
 <br>
 
-<img src="https://img.shields.io/badge/version-v1.1.0-FF4500?style=flat-square&logoColor=white">
+<img src="https://img.shields.io/badge/version-v1.2.0-FF4500?style=flat-square&logoColor=white">
 <img src="https://img.shields.io/badge/python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white">
 <img src="https://img.shields.io/badge/OpenClaw-Compatible-FF4500?style=flat-square">
 
@@ -45,15 +45,28 @@ An intelligent proxy that **classifies** incoming requests by complexity and **r
 
 ---
 
-## 🚀 Latest Release: v1.1.0
+## 🚀 Latest Release: v1.2.0
 
 <div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border: 1px solid #333;">
 
-### 🔀 Automatic Failover Chains
+### 📝 Smart Config Management
 
-📝 [Release Notes 🇬🇧 EN](RELEASE_NOTES_v1.1.0.en.md) | [🇩🇪 DE](RELEASE_NOTES_v1.1.0.md)
+🆕 **Kommentare werden erhalten** — Bei Updates bleiben deine YAML-Kommentare erhalten  
+🆕 **Duplikat-Verhinderung** — Automatische Erkennung von doppelten Modellen (auch auskommentierte)
+
+📝 [Release Notes v1.2.0 🇩🇪 DE](RELEASE_NOTES_v1.2.0.md)
 
 </div>
+
+---
+
+<details>
+<summary>📚 Previous Releases</summary>
+
+### v1.1.0 — Automatic Failover Chains
+📝 [Release Notes 🇬🇧 EN](RELEASE_NOTES_v1.1.0.en.md) | [🇩🇪 DE](RELEASE_NOTES_v1.1.0.md)
+
+</details>
 
 ---
 
@@ -63,12 +76,19 @@ An intelligent proxy that **classifies** incoming requests by complexity and **r
 
 <div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #FF4500;">
 
-### 🆕 NEW: Failover Chains
-Configure multiple models per tier for automatic fallback (v1.1.0+)
+### 🆕 NEW: Smart Config Updates (v1.2.0+)
+Kommentare bleiben erhalten, Duplikate werden verhindert
 
 </div>
 
 <div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #FF4500;">
+
+### 🔄 Failover Chains (v1.1.0+)
+Configure multiple models per tier for automatic fallback
+
+</div>
+
+<div style="background: #1a1a1a; padding: 16px; border-radius: 8px; border-left: 3px solid #3776AB;">
 
 ### 🎯 5-Tier Routing
 super_easy → easy → medium → hard → super_hard
@@ -158,6 +178,31 @@ models:
 2. 🎯 Tries first model
 3. 🔄 If it fails → automatically tries next
 4. ❌ Only returns error if **ALL** models fail
+
+</div>
+
+<div style="background: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #FF4500; margin-top: 20px;">
+
+### 📝 Smart Config Management (v1.2.0+)
+
+Bei Updates der `config.yaml` (z.B. durch `freeride.py`) werden jetzt:
+
+- **Kommentare erhalten** — Deine YAML-Kommentare bleiben beim Update bestehen
+- **Duplikate verhindert** — Modelle werden nicht doppelt hinzugefügt (auch wenn auskommentiert)
+
+**Beispiel:**
+```yaml
+models:
+  super_easy:
+    - "exo:mlx-community/GLM-4.7-Flash-6bit"       # 🏠 Lokal, schnell
+    # - "anthropic:claude-haiku-4-5-20251001"      # ☁️ Backup (deaktiviert)
+    - "pollinations:claude-fast"                   # 🆓 Free tier
+```
+
+Wenn jetzt `freeride.py` läuft:
+- ✓ Der Kommentar bleibt erhalten
+- ✓ `claude-haiku` wird nicht als aktiv hinzugefügt (ist bereits auskommentiert)
+- ✓ Neue Modelle werden nur hinzugefügt, wenn sie noch nicht existieren
 
 </div>
 
